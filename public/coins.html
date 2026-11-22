@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lock Back – Coins</title>
+<style>
+  body { margin:0; background:#0b0f17; color:#eef2f8; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  .bar { display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; padding:14px; text-align:center; }
+  .bar button { padding:10px 18px; border:0; border-radius:10px; font-weight:800; font-size:1rem; cursor:pointer; background:#22c55e; color:#04210f; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(170px, 1fr)); gap:14px; max-width:1100px; margin:0 auto; padding:0 12px 24px; }
+  /* one coin = one A4 page (the screen preview is the same layout, scaled down) */
+  .page { background:#fff; color:#000; aspect-ratio:210 / 297; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:4%; border-radius:6px; break-inside:avoid; }
+  .page .pic { width:78%; } .page .pic img { width:100%; height:auto; display:block; }
+  .page .cap { margin-top:4%; text-align:center; line-height:1.2; width:100%; container-type:inline-size; }
+  .page .code { font:800 30cqw/1.05 Menlo, Consolas, 'Courier New', monospace; direction:ltr; white-space:nowrap; letter-spacing:.04em; }
+  .page .tier { font-weight:900; font-size:1.3em; margin-top:2%; } .page .pts { font-size:.85em; font-weight:700; color:#444; }
+  .sheet4 { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:6px; aspect-ratio:210 / 297; background:#cbd5e1; padding:6px; border-radius:6px; break-inside:avoid; }
+  .grid.per4 { grid-template-columns:repeat(auto-fill, 360px); justify-content:center; max-width:1500px; }   /* fixed-size sheets in the preview: they don't stretch with the screen */
+  .sheet4 .page { aspect-ratio:auto; border-radius:3px; padding:3%; min-height:0; overflow:hidden; }
+  .sheet4 .page .pic { width:62%; } .sheet4 .page .cap { margin-top:3%; } .sheet4 .page .tier { font-size:10cqw; } .sheet4 .page .pts { font-size:5.5cqw; }
+  .bar button.on { outline:3px solid #facc15; }
+  .bar button + button { background:#3b82f6; color:#fff; }
+  @page { size:A4 portrait; margin:3mm; }
+  @media print {
+    * { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { background:#fff; } .bar { display:none; }
+    .grid { display:block; max-width:none; padding:0; }
+    .page { width:204mm; height:289.5mm; overflow:hidden; aspect-ratio:auto; padding:0; border-radius:0; page-break-after:always; break-after:page; }
+    .page .pic { width:150mm; } .page .cap { margin-top:10mm; } .page .tier { font-size:30pt; } .page .pts { font-size:15pt; }
+    .grid > .page:last-child, .grid > .sheet4:last-child { page-break-after:auto; break-after:auto; }
+    /* 4 per page: a 2 x 2 sheet with thin dashed cut lines */
+    .sheet4 { width:204mm; height:289.5mm; gap:0; padding:0; border-radius:0; background:#fff; aspect-ratio:auto; page-break-after:always; break-after:page; overflow:hidden; }
+    .sheet4 .page { width:auto; height:auto; border:.2mm dashed #9ca3af; padding:3mm; }
+    .sheet4 .page .pic { width:62mm; } .sheet4 .page .cap { margin-top:4mm; } .sheet4 .page .tier { font-size:15pt; } .sheet4 .page .pts { font-size:8pt; }
+  }
+</style>
+</head>
+<body>
+<div class="bar"><span id="tip"></span><button id="pr"></button><button id="prCoins"></button><button id="prBombs"></button><span id="layoutLbl"></span><button id="per1"></button><button id="per4"></button></div>
+<div class="grid" id="sheets"></div>
+<script src="/coin.js"></script>
+<script>
+let saved = null; try { saved = localStorage.getItem('lb_lang'); } catch {}   // the language picked in the game wins over the browser's
+const ar = (saved || navigator.language || '').toLowerCase().startsWith('ar');
+const $ = (id) => document.getElementById(id);
+$('tip').textContent = ar ? 'اطبع كل عملة على ورقة A4 ثم اخفوها في أماكن مختلفة — اللاعب يكتب الرقم الموجود تحت العملة مثل رقم اللاعب — ذهبية +5 (30 ث)، فضية +3 (20 ث)، برونزية +1 (10 ث) — لا يعيد اللاعب جمع العملة إلا بعد انتهاء مدتها. آخر 4 صفحات هي القنابل: اخفوها أيضاً'
+                          : 'Print one coin per A4 page and hide them in different places; players type the number under the coin like a player number — gold +5 (30s), silver +3 (20s), bronze +1 (10s); a player can re-collect a coin only after its wait. The last 4 pages are the bombs: hide them too';
+// "only" says what to print: all pages, just the coins (to play without bombs) or just the bombs (?only=coins / ?only=bombs).
+// "per" says how many go on one A4 page: 1 (default) or 4 (?per=4), handy when making the PDF.
+const q = new URLSearchParams(location.search);
+let only = q.get('only'), per = q.get('per') === '4' ? 4 : 1, items = [];
+const printOnly = (o) => { const keep = only; only = o; draw(); print(); only = keep; draw(); };
+$('pr').textContent = '🖨 ' + (ar ? 'طباعة الكل' : 'Print all'); $('pr').onclick = () => printOnly(null);
+$('prCoins').textContent = '🪙 ' + (ar ? 'طباعة العملات فقط' : 'Print coins only'); $('prCoins').onclick = () => printOnly('coins');
+$('prBombs').textContent = '💣 ' + (ar ? 'طباعة القنابل فقط' : 'Print bombs only'); $('prBombs').onclick = () => printOnly('bombs');
+$('layoutLbl').textContent = ar ? 'الصفحة:' : 'Page:';
+$('per1').textContent = ar ? '1 في الصفحة' : '1 per page'; $('per1').onclick = () => { per = 1; draw(); };
+$('per4').textContent = ar ? '4 في الصفحة' : '4 per page'; $('per4').onclick = () => { per = 4; draw(); };
+const TN = { gold: ['Gold', 'ذهبية'], silver: ['Silver', 'فضية'], bronze: ['Bronze', 'برونزية'] };
+const BS = ['classic', 'dynamite', 'grenade', 'mine'];
+const BN = [['Black bomb', 'القنبلة السوداء'], ['Dynamite', 'الديناميت'], ['Blue grenade', 'القنبلة الزرقاء'], ['Green mine', 'اللغم الأخضر']];
+const pageHtml = (c) => c.bomb !== undefined
+  ? `<div class="page bomb"><div class="pic"><img src="/print/${BS[c.bomb]}.png" alt=""></div><div class="cap"><div class="code">${c.code}</div><div class="tier">💣 ${BN[c.bomb][ar ? 1 : 0]}</div><div class="pts">${ar ? 'يكتبه فريق لتفعيلها ضد الفريق الآخر، ويكتبه الفريق المستهدف لتفكيكها' : 'One team types it to arm the bomb; the target team types it to defuse'}</div></div></div>`
+  : `<div class="page ${c.tier}"><div class="pic"><img src="/print/${c.tier}.png" alt=""></div><div class="cap"><div class="code">${c.code}</div><div class="tier">${ar ? 'عملة' : ''} ${TN[c.tier][ar ? 1 : 0]}</div><div class="pts">+${c.points} ${ar ? 'نقاط' : 'points'} · ${c.seconds}${ar ? ' ث' : 's'}</div></div></div>`;
+function draw() {
+  const list = items.filter((c) => only === 'coins' ? c.bomb === undefined : only === 'bombs' ? c.bomb !== undefined : true);
+  let html = '';
+  if (per === 4) for (let i = 0; i < list.length; i += 4) html += `<div class="sheet4">${list.slice(i, i + 4).map(pageHtml).join('')}</div>`;
+  else html = list.map(pageHtml).join('');
+  $('sheets').innerHTML = html; $('sheets').classList.toggle('per4', per === 4);
+  $('per1').classList.toggle('on', per === 1); $('per4').classList.toggle('on', per === 4);
+}
+fetch('/api/coins').then((r) => r.json()).then((c) => { items = c; draw(); });
+</script>
+<script>
+let saved = null; try { saved = localStorage.getItem('lb_lang'); } catch {}   // the language picked in the game wins over the browser's
+const ar = (saved || navigator.language || '').toLowerCase().startsWith('ar');
+const $ = (id) => document.getElementById(id);
+$('tip').textContent = ar ? 'اطبع كل عملة على ورقة A4 ثم اخفوها في أماكن مختلفة — اللاعب يكتب الرقم الموجود تحت العملة مثل رقم اللاعب — ذهبية +5 (30 ث)، فضية +3 (20 ث)، برونزية +1 (10 ث) — لا يعيد اللاعب جمع العملة إلا بعد انتهاء مدتها. آخر 4 صفحات هي القنابل: اخفوها أيضاً'
+                          : 'Print one coin per A4 page and hide them in different places; players type the number under the coin like a player number — gold +5 (30s), silver +3 (20s), bronze +1 (10s); a player can re-collect a coin only after its wait. The last 4 pages are the bombs: hide them too';
+// "only" says what to print: all pages, just the coins (to play without bombs) or just the bombs (?only=coins / ?only=bombs).
+// "per" says how many go on one A4 page: 1 (default) or 4 (?per=4), handy when making the PDF.
+const q = new URLSearchParams(location.search);
+let only = q.get('only'), per = q.get('per') === '4' ? 4 : 1, items = [];
+const printOnly = (o) => { const keep = only; only = o; draw(); print(); only = keep; draw(); };
+$('pr').textContent = '🖨 ' + (ar ? 'طباعة الكل' : 'Print all'); $('pr').onclick = () => printOnly(null);
+$('prCoins').textContent = '🪙 ' + (ar ? 'طباعة العملات فقط' : 'Print coins only'); $('prCoins').onclick = () => printOnly('coins');
+$('prBombs').textContent = '💣 ' + (ar ? 'طباعة القنابل فقط' : 'Print bombs only'); $('prBombs').onclick = () => printOnly('bombs');
+$('layoutLbl').textContent = ar ? 'الصفحة:' : 'Page:';
+$('per1').textContent = ar ? '1 في الصفحة' : '1 per page'; $('per1').onclick = () => { per = 1; draw(); };
+$('per4').textContent = ar ? '4 في الصفحة' : '4 per page'; $('per4').onclick = () => { per = 4; draw(); };
+const TN = { gold: ['Gold', 'ذهبية'], silver: ['Silver', 'فضية'], bronze: ['Bronze', 'برونزية'] };
+fetch('/api/coins').then((r) => r.json()).then((coins) => {
+  const BS = ['classic', 'dynamite', 'grenade', 'mine'];
+  const BN = [['Black bomb', 'القنبلة السوداء'], ['Dynamite', 'الديناميت'], ['Blue grenade', 'القنبلة الزرقاء'], ['Green mine', 'اللغم الأخضر']];
+  $('sheets').innerHTML = coins.map((c) => c.bomb !== undefined ? `<div class="page bomb"><div class="pic"><img src="/print/${BS[c.bomb]}.png" alt=""></div><div class="cap"><div class="code">${c.code}</div><div class="tier">💣 ${BN[c.bomb][ar ? 1 : 0]}</div><div class="pts">${ar ? 'يكتبه فريق لتفعيلها ضد الفريق الآخر، ويكتبه الفريق المستهدف لتفكيكها' : 'One team types it to arm the bomb; the target team types it to defuse'}</div></div></div>` : `<div class="page ${c.tier}"><div class="pic"><img src="/print/${c.tier}.png" alt=""></div><div class="cap"><div class="code">${c.code}</div><div class="tier">${ar ? 'عملة' : ''} ${TN[c.tier][ar ? 1 : 0]}</div><div class="pts">+${c.points} ${ar ? 'نقاط' : 'points'} · ${c.seconds}${ar ? ' ث' : 's'}</div></div></div>`).join('');
+});
+</script>
+</body>
+</html>

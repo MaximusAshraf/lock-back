@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock Back – Control</title>
+<style>
+  :root { --a:#3b82f6; --b:#f59e0b; --bg:#0b0f17; --card:#161d2b; --text:#eef2f8; --muted:#8b97ab; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:radial-gradient(120% 70% at 50% 0%, #1a2540 0%, var(--bg) 60%); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; padding:16px; }
+  .wrap { max-width:1200px; margin:0 auto; }
+  .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:10px; }
+  h1 { margin:0; font-size:1.5rem; }
+  button { padding:9px 14px; border:0; border-radius:9px; font-weight:700; cursor:pointer; background:#2a3550; color:var(--text); font-size:.95rem; }
+  button:hover { filter:brightness(1.2); } button:disabled { opacity:.4; cursor:default; }
+  button.go { background:linear-gradient(160deg,#34d399,#16a34a); color:#03200f; } button.stop { background:#ef4444; color:#fff; }
+  #langBtn { background:#243049; border-radius:99px; }
+  .timeBar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; background:var(--card); border-radius:14px; padding:14px 16px; margin-bottom:16px; position:sticky; top:8px; z-index:5; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  .timeBar label { display:flex; align-items:center; gap:8px; font-weight:700; }
+  .timeBar input { width:90px; padding:10px; font-size:1.2rem; font-weight:800; text-align:center; border-radius:9px; border:2px solid #34405a; background:#0e1420; color:var(--text); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:16px; align-items:start; }
+  .g { background:var(--card); border-radius:16px; padding:16px; border-top:6px solid #3b4a6b; display:flex; flex-direction:column; gap:10px; }
+  .g.running { border-top-color:#22c55e; } .g.countdown { border-top-color:#f59e0b; } .g.off { opacity:.5; }
+  .hd { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .hd h2 { margin:0; font-size:1.3rem; }
+  .pill { padding:3px 12px; border-radius:99px; font-size:.8rem; font-weight:700; background:#243049; text-align:center; }
+  .g.running .pill { background:#14532d; color:#86efac; } .g.countdown .pill { background:#78350f; color:#fde68a; }
+  .timer { font-size:2.6rem; font-weight:800; font-variant-numeric:tabular-nums; line-height:1; text-align:center; direction:ltr; }
+  .scores { display:flex; gap:10px; }
+  .sc { flex:1; background:#10161f; border-radius:12px; padding:8px; text-align:center; border-top:4px solid var(--c); }
+  .sc.A { --c:var(--a); } .sc.B { --c:var(--b); }
+  .sc small { display:block; color:var(--muted); }
+  .sc b { font-size:2rem; line-height:1.1; display:block; font-variant-numeric:tabular-nums; }
+  .sc i { font-style:normal; color:#fbbf24; font-weight:700; font-size:.85rem; }
+  details.nums summary { cursor:pointer; color:var(--muted); font-weight:700; padding:4px 0; }
+  .numCols { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
+  .numCols h4 { margin:0 0 6px; display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:.9rem; }
+  .numCols h4 button { padding:3px 8px; font-size:.75rem; }
+  .chips { display:flex; flex-wrap:wrap; gap:4px; direction:ltr; }
+  .chips span { font-family:ui-monospace,monospace; font-size:.8rem; padding:2px 6px; border-radius:6px; background:#10161f; color:#9aa6bb; }
+  .chips span.on { background:#16a34a; color:#fff; }      /* player online */
+  .chips span.off { background:#b91c1c; color:#fff; }     /* player joined but offline */
+  .acts { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .acts a { text-decoration:none; } .acts a button { width:100%; }
+  .acts .full { grid-column:1 / -1; }
+
+  #keyModal { position:fixed; inset:0; background:rgba(5,8,14,.8); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+  #keyModal .box { background:var(--card); border-radius:16px; padding:20px; width:100%; max-width:560px; max-height:92vh; overflow:auto; }
+  #keyModal .hint { color:var(--muted); margin:0 0 14px; }
+  #shareModal { position:fixed; inset:0; background:rgba(5,8,14,.8); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+  #shareModal .box { background:var(--card); border-radius:16px; padding:20px; width:100%; max-width:560px; max-height:92vh; overflow:auto; }
+  #shareModal h2 { margin:0 0 4px; } #shareModal .hint { color:var(--muted); margin:0 0 14px; }
+  .qr { background:#0e1420; border-radius:12px; padding:14px; text-align:center; margin-bottom:12px; }
+  .qr .code { background:#fff; border-radius:10px; padding:6px; width:100%; max-width:300px; margin:0 auto 10px; }
+  .qr .code svg { display:block; width:100%; height:auto; }
+  .qr .url { direction:ltr; font-family:ui-monospace,monospace; word-break:break-all; margin-bottom:10px; }
+  .qr .acts2 { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+</style>
+</head>
+<body data-page="master">
+<div class="wrap">
+  <div class="top">
+    <h1>🔒 <span data-i18n="masterTitle"></span></h1>
+    <button id="langBtn"></button>
+  </div>
+
+  <div class="timeBar">
+    <label>⏱ <span data-i18n="timeLabel"></span>
+      <input type="number" id="mins" step="0.1" min="0.05" value="3" inputmode="decimal">
+    </label>
+    <button data-q="1" data-i18n="q1"></button>
+    <button data-q="2" data-i18n="q2"></button>
+    <button data-q="3" data-i18n="q3"></button>
+    <button data-q="5" data-i18n="q5"></button>
+    <span style="flex:1"></span>
+    <button id="keyBtn" style="display:none"></button>
+    <button class="go" id="bigBtn"></button>
+    <button class="go" id="coinsBtn"></button>
+  </div>
+
+  <div class="grid" id="cards"></div>
+</div>
+
+<div id="keyModal" class="modal"><div class="box">
+  <h2 id="keyTitle"></h2><p class="hint" id="keyHint"></p>
+  <div id="keyQrs"></div>
+  <p style="display:flex;justify-content:space-between;gap:8px;margin:14px 0 0"><button class="stop" id="keyReset"></button><button id="keyClose"></button></p>
+</div></div>
+
+<div id="shareModal"><div class="box">
+  <h2 id="shareTitle"></h2><p class="hint" data-i18n="shareHint"></p>
+  <div id="qrs"></div>
+  <p style="text-align:end;margin:14px 0 0"><button id="shareClose" data-i18n="close"></button></p>
+</div></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/i18n.js"></script>
+<script src="/live.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const G = {};          // id -> { socket, state, offset, online }
+let ids = [];
+
+// ----- connect to every game as its admin -----
+async function init() {
+  let list = [];
+  try { list = await (await fetch('/api/games')).json(); } catch {}
+  ids = list.map((g) => g.id);
+  $('cards').innerHTML = ids.map(card).join('');
+  applyLang();
+  $('bigBtn').textContent = '🖥 ' + t('bigScreen');
+  $('coinsBtn').textContent = '🪙 ' + t('printCoins');
+  ids.forEach(wire);
+}
+
+function card(id) {
+  return `<div class="g" id="g${id}">
+    <div class="hd">
+      <h2>${esc(t('game', { n: id }))}</h2>
+      <span class="pill" id="pill${id}">…</span>
+    </div>
+    <div class="timer" id="timer${id}">—</div>
+    <div class="scores">
+      <div class="sc A"><small class="tA"></small><b id="sA${id}">0</b><i id="wA${id}"></i></div>
+      <div class="sc B"><small class="tB"></small><b id="sB${id}">0</b><i id="wB${id}"></i></div>
+    </div>
+    <div class="acts">
+      <button class="full" data-act="toggle" data-id="${id}"></button>
+      <button data-act="reset" data-id="${id}"></button>
+      <button data-act="block" data-id="${id}"></button>
+      <button data-act="share" data-id="${id}"></button>
+      <a class="full" href="/g/${id}/admin"><button class="open"></button></a>
+    </div>
+    <details class="nums"><summary id="numsSum${id}"></summary>
+      <div class="numCols">
+        <div><h4><span class="tA"></span><button data-copy="A" data-id="${id}"></button></h4><div class="chips A" id="nA${id}"></div></div>
+        <div><h4><span class="tB"></span><button data-copy="B" data-id="${id}"></button></h4><div class="chips B" id="nB${id}"></div></div>
+      </div>
+    </details>
+  </div>`;
+}
+
+function wire(id) {
+  const socket = io('/g' + id, { reconnectionDelayMax: 2000 });
+  socket.on('forbidden', () => location.reload());          // the admin key was reset
+  const g = G[id] = { socket, state: null, offset: 0, online: false };
+  socket.on('connect', () => { g.online = true; socket.emit('admin:hello', null, (s) => set(id, s)); });
+  socket.on('disconnect', () => { g.online = false; draw(id); });
+  socket.on('state', (s) => set(id, s));
+  keepAlive(socket, (res) => { if (res.state) set(id, res.state); else socket.emit('admin:hello', null, (s) => set(id, s)); });
+}
+function set(id, s) { G[id].state = s; G[id].offset = s.now - Date.now(); G[id].online = true; draw(id); }
+
+// ----- drawing -----
+function labels(id) {
+  const el = $('g' + id);
+  el.querySelector('.tA').textContent = teamName('A'); el.querySelector('.tB').textContent = teamName('B');
+  el.querySelector('[data-act=reset]').textContent = '↺ ' + t('resetGame');
+  const blk = el.querySelector('[data-act=block]'), blocked = !!G[id].state?.blocked;
+  blk.textContent = blocked ? '✅ ' + t('allowPlayers') : '⛔ ' + t('blockPlayers');
+  blk.className = blocked ? 'go' : 'stop';
+  el.querySelector('[data-act=share]').textContent = '📱 ' + t('share');
+  el.querySelector('.open').textContent = '⚙ ' + t('fullBoard');
+  el.querySelector('h2').textContent = t('game', { n: id });
+  el.querySelectorAll('[data-copy]').forEach((b) => (b.textContent = t('copyList')));
+  el.querySelectorAll('.numCols .tA').forEach((x) => (x.textContent = teamName('A')));
+  el.querySelectorAll('.numCols .tB').forEach((x) => (x.textContent = teamName('B')));
+}
+function draw(id) {
+  const g = G[id], s = g.state, el = $('g' + id);
+  labels(id);
+  el.classList.toggle('off', !g.online);
+  const tg = el.querySelector('[data-act=toggle]');
+  const phase = s ? s.phase : 'lobby';
+  tg.className = 'full ' + (phase === 'lobby' ? 'go' : 'stop');
+  tg.textContent = phase === 'lobby' ? '▶ ' + t('startGame') : phase === 'countdown' ? '✕ ' + t('cancelStart') : '■ ' + t('endRound');
+  tg.disabled = !g.online || !s;
+  if (!s) return;
+  el.classList.remove('running', 'countdown');
+  if (s.phase !== 'lobby') el.classList.add(s.phase);
+  $('pill' + id).textContent = !g.online ? t('disconnected')
+    : s.phase === 'countdown' ? t('stStarting', { n: s.round }).replace(/^.*?— /, '')
+    : s.phase === 'running' ? t('round', { n: s.round })
+    : s.round ? t('roundDone', { n: s.round }) : t('hubWaiting');
+  $('sA' + id).textContent = s.scores.A; $('sB' + id).textContent = s.scores.B;
+  $('wA' + id).textContent = '🏆 ' + s.wins.A + ' 🪙 ' + s.coins.A; $('wB' + id).textContent = '🏆 ' + s.wins.B + ' 🪙 ' + s.coins.B;
+  // numbers of this game (rebuilt only when the list or who is using them changes)
+  // green = player online, red = player joined but offline, dim = nobody joined with it
+  const status = {};
+  for (const tm of ['A', 'B']) for (const p of s.teams[tm].players) status[p.pin] = p.connected ? 'on' : 'off';
+  const on = Object.values(status).filter((v) => v === 'on').length;
+  const key = s.numbers.A[0] + s.numbers.B[0] + '|' + Object.entries(status).map(([k, v]) => k + v).join(',');
+  if (g.numKey !== key) {
+    g.numKey = key;
+    for (const tm of ['A', 'B']) $('n' + tm + id).innerHTML = s.numbers[tm].map((n) => `<span class="${status[n] || ''}">${n}</span>`).join('');
+  }
+  const joined = Object.keys(status).length;
+  $('numsSum' + id).textContent = `🔢 ${joined} ${t('playersWord')} · 🟢 ${on} · 🔴 ${joined - on}`;
+  tick();
+}
+function tick() {
+  for (const id of ids) {
+    const g = G[id]; if (!g || !g.state) continue;
+    const s = g.state, now = Date.now() + g.offset, el = $('timer' + id);
+    if (s.phase === 'running') {
+      const sec = Math.ceil(Math.max(0, s.endsAt - now) / 1000);
+      el.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    } else if (s.phase === 'countdown') {
+      el.textContent = Math.max(1, Math.ceil((s.startsAt - now) / 1000));
+    } else el.textContent = '—';
+  }
+}
+setInterval(tick, 250);
+
+// ----- controls -----
+const minutes = () => parseFloat($('mins').value);
+function startGame(id) {
+  const m = minutes();
+  if (!(m >= 0.05)) return alert(t('minutesRange'));
+  G[id].socket.emit('admin:start', { minutes: m }, (r) => r?.error && alert(t(r.error)));
+}
+
+document.querySelectorAll('[data-q]').forEach((b) => (b.onclick = () => ($('mins').value = b.dataset.q)));
+
+$('cards').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = +b.dataset.id;
+  if (b.dataset.act === 'toggle') {
+    const phase = G[id].state?.phase;
+    if (phase === 'lobby') startGame(id);
+    else if (phase === 'countdown') G[id].socket.emit('admin:end');          // cancel before it begins
+    else if (confirm(t('confirmEnd'))) G[id].socket.emit('admin:end');       // end a running round
+  }
+  else if (b.dataset.act === 'reset') askReset((block) => G[id].socket.emit('admin:reset', { block }));
+  else if (b.dataset.act === 'block') {
+    if (G[id].state?.blocked) G[id].socket.emit('admin:block', false);
+    else if (confirm(t('confirmBlock'))) G[id].socket.emit('admin:block', true);
+  }
+  else if (b.dataset.act === 'share') openShare(id);
+});
+$('cards').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  const s = G[+b.dataset.id].state; if (!s) return;
+  const text = s.numbers[b.dataset.copy].join('\n');
+  try { await navigator.clipboard.writeText(text); } catch { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  const old = b.textContent; b.textContent = t('copied'); setTimeout(() => (b.textContent = old), 1200);
+});
+
+// ----- share / QR for a game -----
+let shareData = [], shareGame = 0;
+async function openShare(id) {
+  shareGame = id;
+  $('shareModal').style.display = 'flex';
+  $('qrs').innerHTML = '';
+  shareIdx = -1;
+  try { shareData = await (await fetch('/api/share?game=' + id)).json(); } catch { shareData = []; }
+  renderShare();
+}
+let shareIdx = -1;
+function pickShareIp(i) { shareIdx = i; shareChoose(shareData[i].ip); renderShare(); }
+function renderShare() {
+  if (!shareGame) return;
+  $('shareTitle').textContent = t('shareTitle') + ' — ' + t('game', { n: shareGame });
+  if (!shareData.length) { $('qrs').innerHTML = `<p>${esc(t('noNetwork'))}</p>`; return; }
+  if (shareIdx < 0 || shareIdx >= shareData.length) shareIdx = shareIndex(shareData);
+  const s = shareData[shareIdx], i = shareIdx;
+  $('qrs').innerHTML = shareTabs(shareData, i, 'pickShareIp') + `
+    <div class="qr"><div class="code">${s.svg}</div><div class="url">${esc(s.join)}</div>
+      <div class="acts2"><button class="go" onclick="copyLink(${i}, this)">${esc(t('copy'))}</button>
+      <button onclick="window.open('${esc(s.join)}', '_blank')">${esc(t('open'))}</button></div></div>`;
+}
+async function copyLink(i, btn) {
+  const url = shareData[i].join;
+  try { await navigator.clipboard.writeText(url); }
+  catch { const ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  btn.textContent = t('copied'); setTimeout(() => (btn.textContent = t('copy')), 1500);
+}
+// ----- big screen: opens the scoreboard (scores only, no numbers) in its own window for a projector -----
+$('coinsBtn').onclick = () => window.open('/coins', '_blank');
+$('bigBtn').onclick = () => window.open('/screen', 'lockback-screen');
+
+// ----- admin link for another device (only shown on the laptop that runs the server) -----
+let keyLinks = [];
+async function openKey() {
+  $('keyModal').style.display = 'flex'; $('keyQrs').innerHTML = '';
+  try { keyLinks = await (await fetch('/api/admin-link')).json(); } catch { keyLinks = []; }
+  renderKey();
+}
+function renderKey() {
+  $('keyTitle').textContent = '🔑 ' + t('adminLinkTitle'); $('keyHint').textContent = t('adminLinkHint');
+  $('keyReset').textContent = t('resetKey'); $('keyClose').textContent = t('close');
+  $('keyQrs').innerHTML = keyLinks.length ? keyLinks.map((s, i) => `
+    <div class="qr"><div class="code">${s.svg}</div><div class="url">${esc(s.url)}</div>
+      <div class="acts2"><button class="go" onclick="copyKey(${i}, this)">${esc(t('copy'))}</button></div></div>`).join('') : `<p>${esc(t('noNetwork'))}</p>`;
+}
+async function copyKey(i, btn) {
+  const url = keyLinks[i].url;
+  try { await navigator.clipboard.writeText(url); } catch { const ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  btn.textContent = t('copied'); setTimeout(() => (btn.textContent = t('copy')), 1500);
+}
+$('keyBtn').onclick = openKey;
+$('keyClose').onclick = () => ($('keyModal').style.display = 'none');
+$('keyModal').onclick = (e) => { if (e.target === $('keyModal')) $('keyModal').style.display = 'none'; };
+$('keyReset').onclick = async () => {
+  if (!confirm(t('adminLinkHint'))) return;
+  await fetch('/api/admin-link/rotate', { method: 'POST', headers: { 'x-lb': '1' } });
+  keyLinks = await (await fetch('/api/admin-link')).json(); renderKey();
+  const b = $('keyReset'); b.textContent = t('keyIsReset'); setTimeout(renderKey, 1800);
+};
+fetch('/api/whoami').then((r) => r.json()).then((w) => { if (w.local) { $('keyBtn').style.display = ''; $('keyBtn').textContent = '🔑 ' + t('adminLink'); } });
+
+$('shareClose').onclick = () => ($('shareModal').style.display = 'none');
+$('shareModal').onclick = (e) => { if (e.target === $('shareModal')) $('shareModal').style.display = 'none'; };
+
+window.onLangChange = () => { ids.forEach(draw); renderShare(); $('bigBtn').textContent = '🖥 ' + t('bigScreen'); $('keyBtn').textContent = '🔑 ' + t('adminLink'); renderKey(); };
+init();
+</script>
+</body>
+</html>

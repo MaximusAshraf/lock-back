@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock Back</title>
+<style>
+  :root { --a:#3b82f6; --b:#f59e0b; --bg:#070b14; --card:#121a2b; --text:#eef2f8; --muted:#8b97ab; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; overflow:hidden; display:flex; flex-direction:column; gap:1.4vh; padding:1.6vh 1.4vw;
+         background:radial-gradient(90% 70% at 20% 0%, #1a2a52 0%, transparent 60%), radial-gradient(80% 70% at 85% 100%, #3a2410 0%, transparent 60%), var(--bg); }
+  button { border:0; border-radius:99px; padding:7px 14px; font-weight:700; background:#243049; color:var(--text); cursor:pointer; opacity:.4; transition:opacity .2s; }
+  button:hover, button.on { opacity:1; }
+
+  .top { display:flex; align-items:center; justify-content:space-between; gap:1vw; flex-wrap:wrap; }
+  .brand { font-size:clamp(1.3rem, 4vh, 3rem); font-weight:900; letter-spacing:.02em; }
+  .ctl { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .gchip { display:flex; align-items:center; gap:6px; background:#243049; padding:6px 12px; border-radius:99px; font-weight:700; cursor:pointer; opacity:.5; }
+  .gchip:has(input:checked) { opacity:1; } .gchip input { accent-color:#22c55e; }
+  body.quiet .ctl { opacity:0; transition:opacity .6s; } body.quiet .ctl:hover { opacity:1; }
+
+  .games { flex:1; min-height:0; display:grid; grid-template-columns:repeat(var(--n,3), 1fr); gap:1.2vw; }
+  .gp { container-type:inline-size; position:relative; min-width:0; min-height:0; display:flex; flex-direction:column; gap:1.4vh; background:var(--card); border-radius:2.2vh; padding:2vh 1.2vw; border-top:1vh solid #3b4a6b; overflow:hidden; }
+  .gp.running { border-top-color:#22c55e; } .gp.countdown { border-top-color:#f59e0b; }
+  .gh { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .gh h2 { margin:0; font-size:clamp(1.3rem, 4.6vh, 3.4rem); }
+  .pill { padding:.2em .9em; border-radius:99px; background:#243049; font-weight:800; font-size:clamp(.8rem, 2.2vh, 1.6rem); white-space:nowrap; }
+  .gp.running .pill { background:#14532d; color:#86efac; } .gp.countdown .pill { background:#78350f; color:#fde68a; }
+  .timer { text-align:center; font-weight:900; font-variant-numeric:tabular-nums; line-height:1; font-size:clamp(2.4rem, min(13cqw, 11vh), 9rem); direction:ltr; min-height:1em; }
+  .timer.low { color:#ef4444; animation:pulse .5s ease-in-out infinite alternate; }
+
+  .tug { height:2.2vh; border-radius:99px; background:#222c40; overflow:hidden; display:flex; direction:ltr; }
+  .tug i { display:block; height:100%; transition:width .8s cubic-bezier(.2,.9,.2,1); }
+  .tug .A { background:linear-gradient(90deg,#1d4ed8,var(--a)); } .tug .B { background:linear-gradient(90deg,var(--b),#d97706); }
+
+  .teams { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:1cqw; }
+  .team { position:relative; min-height:0; background:#0e1424; border-radius:1.6vh; border-top:.8vh solid var(--c); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.6vh; transition:transform .5s cubic-bezier(.2,1.4,.4,1), opacity .5s, box-shadow .5s; }
+  .team.A { --c:var(--a); } .team.B { --c:var(--b); }
+  .team small { font-size:clamp(.9rem, 2.6vh, 1.9rem); font-weight:800; color:#b9c4d8; }
+  .team .crown { position:absolute; top:-.2em; font-size:clamp(1.4rem, 4.5vh, 3.2rem); opacity:0; transform:translateY(.5em) scale(.5); transition:.4s cubic-bezier(.2,1.6,.4,1); }
+  .team.lead .crown { opacity:1; transform:none; animation:bob 1.4s ease-in-out infinite; }
+  .team.lead { box-shadow:0 0 5vh -.5vh var(--c); }
+  .score { font-size:min(21cqw, 22vh); font-weight:900; line-height:1; font-variant-numeric:tabular-nums; color:var(--c); direction:ltr; }
+  .score[data-len="3"] { font-size:min(15cqw, 19vh); } .score[data-len="4"] { font-size:min(11cqw, 16vh); }
+  .score.pop { animation:pop .5s cubic-bezier(.2,1.8,.4,1); }
+  .wins { color:#fbbf24; font-weight:800; font-size:clamp(.9rem, 2.6vh, 1.9rem); }
+  .team.win { transform:scale(1.05); box-shadow:0 0 9vh 0 var(--c); } .team.lose { opacity:.45; transform:scale(.97); }
+  .plus { position:absolute; top:30%; font-size:clamp(1.6rem, 6vh, 4rem); font-weight:900; color:#4ade80; pointer-events:none; animation:rise 1s ease-out forwards; }
+
+  .banner { position:absolute; left:0; right:0; bottom:0; padding:2.2vh 1cqw; text-align:center; font-weight:900; font-size:clamp(1.3rem, min(6cqw, 5vh), 3.4rem); background:linear-gradient(90deg, transparent, var(--bc, #f59e0b) 20%, var(--bc, #f59e0b) 80%, transparent); color:#fff; text-shadow:0 2px 12px rgba(0,0,0,.5); transform:translateY(110%); transition:transform .6s cubic-bezier(.2,1.2,.3,1); }
+  .gp.finished .banner { transform:none; }
+  .banner small { display:block; font-size:.5em; opacity:.9; }
+  .idle { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:1vh; background:rgba(18,26,43,.92); font-size:clamp(1.1rem, 3vh, 2.2rem); font-weight:800; color:var(--muted); }
+  .gp.waiting .idle { display:flex; } .idle b { font-size:clamp(3rem, 14vh, 9rem); animation:bob 1.6s ease-in-out infinite; }
+
+  .over { position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(7,11,20,.88); z-index:3; }
+  .gp.cd .over, .gp.go .over { display:flex; }
+  .over b { font-size:min(55cqw, 45vh); font-weight:900; line-height:1; color:#fff; text-shadow:0 0 6vh #f59e0b; animation:beat .9s ease-out; }
+  .gp.go .over { background:rgba(34,197,94,.25); } .gp.go .over b { font-size:min(38cqw, 34vh); color:#86efac; text-shadow:0 0 8vh #22c55e; animation:boom .9s cubic-bezier(.2,1.6,.4,1); }
+  .gp.shake { animation:shake .5s; }
+
+  canvas#fx { position:fixed; inset:0; pointer-events:none; z-index:50; }
+
+  @keyframes pop { 0% { transform:scale(.6); } 60% { transform:scale(1.25); } 100% { transform:scale(1); } }
+  @keyframes pulse { to { transform:scale(1.08); } }
+  @keyframes bob { 50% { transform:translateY(-.15em); } }
+  @keyframes rise { to { transform:translateY(-9vh); opacity:0; } }
+  @keyframes beat { 0% { transform:scale(1.8); opacity:0; } 25% { opacity:1; } 100% { transform:scale(1); } }
+  @keyframes boom { 0% { transform:scale(.2); opacity:0; } 50% { transform:scale(1.3); opacity:1; } 100% { transform:scale(1); } }
+  @keyframes shake { 20%,60% { transform:translateX(-1vw); } 40%,80% { transform:translateX(1vw); } }
+</style>
+</head>
+<body data-page="scoreboard">
+<div class="top">
+  <div class="brand">🔒 <span data-i18n="brand"></span></div>
+  <div class="ctl" id="ctl"></div>
+</div>
+<div class="games" id="games"></div>
+<canvas id="fx"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/i18n.js"></script>
+<script src="/live.js"></script>
+<script src="/coinfx.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const COLORS = { A: ['#3b82f6', '#60a5fa', '#93c5fd', '#ffffff'], B: ['#f59e0b', '#fbbf24', '#fcd34d', '#ffffff'] };
+const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+const S = {};                 // id -> { state, offset, socket }
+let ids = [], shown = new Set(), soundOn = store.get('lb_sound') === '1', audio = null;
+
+// ---------- sound (tiny synth, no files; needs one click on "Sound") ----------
+function tone(f, d = .15, type = 'sine', vol = .18, delay = 0) {
+  if (!soundOn || !audio) return;
+  const t0 = audio.currentTime + delay, o = audio.createOscillator(), g = audio.createGain();
+  o.type = type; o.frequency.value = f; g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + d);
+  o.connect(g).connect(audio.destination); o.start(t0); o.stop(t0 + d);
+}
+const sndTick = () => tone(520, .12, 'square', .08);
+const sndGo = () => { tone(784, .25, 'triangle', .22); tone(1175, .4, 'triangle', .22, .08); };
+const sndWin = () => [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, .35, 'triangle', .22, i * .11));
+const sndPlus = () => tone(880, .08, 'sine', .08);
+
+// ---------- confetti ----------
+const cv = $('fx'), cx = cv.getContext('2d'); let parts = [], raf = 0;
+function fit() { cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
+addEventListener('resize', fit); fit();
+function burst(x, y, colors, n = 90, power = 1) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = (4 + Math.random() * 9) * power;
+    parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 5 * power, r: Math.random() * 6, vr: (Math.random() - .5) * .4,
+      w: 7 + Math.random() * 9, h: 4 + Math.random() * 6, c: colors[Math.floor(Math.random() * colors.length)], life: 110 + Math.random() * 60 });
+  }
+  if (!raf) raf = requestAnimationFrame(loop);
+}
+function loop() {
+  cx.clearRect(0, 0, cv.width, cv.height);
+  const k = devicePixelRatio;
+  parts = parts.filter((p) => p.life > 0 && p.y < innerHeight + 40);
+  for (const p of parts) {
+    p.vy += .22; p.vx *= .995; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life--;
+    cx.save(); cx.translate(p.x * k, p.y * k); cx.rotate(p.r); cx.globalAlpha = Math.min(1, p.life / 40);
+    cx.fillStyle = p.c; cx.fillRect(-p.w * k / 2, -p.h * k / 2, p.w * k, p.h * k); cx.restore();
+  }
+  raf = parts.length ? requestAnimationFrame(loop) : 0;
+  if (!raf) cx.clearRect(0, 0, cv.width, cv.height);
+}
+const centerOf = (el) => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r }; };
+
+// ---------- layout ----------
+function build() {
+  const list = ids.filter((id) => shown.has(id));
+  $('games').style.setProperty('--n', Math.max(1, list.length));
+  $('games').innerHTML = list.map((id) => `
+    <section class="gp waiting" id="gp${id}">
+      <div class="gh"><h2></h2><span class="pill"></span></div>
+      <div class="timer">—</div>
+      <div class="tug"><i class="A" style="width:50%"></i><i class="B" style="width:50%"></i></div>
+      <div class="teams">
+        <div class="team A"><span class="crown">👑</span><small class="tn"></small><div class="score">0</div><div class="wins"></div></div>
+        <div class="team B"><span class="crown">👑</span><small class="tn"></small><div class="score">0</div><div class="wins"></div></div>
+      </div>
+      <div class="banner"></div>
+      <div class="idle"><b>🔒</b><span></span></div>
+      <div class="over"><b></b></div>
+    </section>`).join('');
+  ids.forEach((id) => S[id] && S[id].state && draw(id));
+}
+function controls() {
+  $('ctl').innerHTML = ids.map((id) => `<label class="gchip"><input type="checkbox" data-id="${id}" ${shown.has(id) ? 'checked' : ''}>${t('game', { n: id })}</label>`).join('')
+    + `<button id="snd" class="${soundOn ? 'on' : ''}">${soundOn ? '🔊' : '🔈'} ${t('scrSound')}</button><button id="full">⛶ ${t('fullscreen')}</button>`;
+  $('ctl').querySelectorAll('[data-id]').forEach((c) => (c.onchange = () => {
+    c.checked ? shown.add(+c.dataset.id) : shown.delete(+c.dataset.id);
+    if (!shown.size) { shown.add(+c.dataset.id); c.checked = true; }
+    store.set('lb_screenGames', JSON.stringify([...shown])); build();
+  }));
+  $('snd').onclick = () => {
+    soundOn = !soundOn; store.set('lb_sound', soundOn ? '1' : '0');
+    if (soundOn) { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); audio.resume?.(); sndGo(); }
+    controls();
+  };
+  $('full').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
+}
+
+// ---------- drawing one game ----------
+function draw(id) {
+  const g = S[id], s = g && g.state, el = $('gp' + id); if (!s || !el) return;
+  const lr = s.phase === 'lobby' ? s.lastResult : null;          // after a round: keep showing its final score
+  const sc = lr ? lr.scores : s.scores;
+  el.querySelector('h2').textContent = t('game', { n: id });
+  el.classList.remove('running', 'countdown');
+  if (s.phase !== 'lobby') el.classList.add(s.phase);
+  el.classList.toggle('waiting', s.phase === 'lobby' && !lr);
+  el.classList.toggle('finished', !!lr);
+  el.querySelector('.idle span').textContent = t('hubWaiting');
+  el.querySelector('.pill').textContent = s.phase === 'running' ? t('round', { n: s.round }) : s.phase === 'countdown' ? t('round', { n: s.round }) : lr ? t('roundDone', { n: lr.round }) : t('hubWaiting');
+  ['A', 'B'].forEach((tm) => {
+    const card = el.querySelector('.team.' + tm);
+    card.querySelector('.tn').textContent = teamName(tm);
+    const sEl = card.querySelector('.score'); sEl.textContent = sc[tm]; sEl.dataset.len = String(sc[tm]).length;
+    card.querySelector('.wins').textContent = '🏆 ' + s.wins[tm] + '  🪙 ' + s.coins[tm];
+    const lead = (s.phase === 'running' || s.phase === 'countdown') && sc[tm] > sc[tm === 'A' ? 'B' : 'A'];
+    card.classList.toggle('lead', lead);
+    card.classList.toggle('win', !!lr && lr.winner === tm);
+    card.classList.toggle('lose', !!lr && !!lr.winner && lr.winner !== tm);
+  });
+  const total = sc.A + sc.B;
+  el.querySelector('.tug .A').style.width = (total ? sc.A / total * 100 : 50) + '%';
+  el.querySelector('.tug .B').style.width = (total ? sc.B / total * 100 : 50) + '%';
+  if (lr) {
+    el.style.setProperty('--bc', lr.winner === 'A' ? '#2563eb' : lr.winner === 'B' ? '#d97706' : '#6366f1');
+    el.querySelector('.banner').innerHTML = (lr.winner ? '🏆 ' + t('scrWins', { team: teamName(lr.winner) }) : '🤝 ' + t('scrDraw')) + `<small>${lr.scores.A} – ${lr.scores.B}</small>`;
+  }
+}
+
+// ---------- effects ----------
+function onState(id, s) {
+  const g = S[id], prev = g.state; g.state = s; g.offset = s.now - Date.now();
+  const el = $('gp' + id);
+  if (prev && el) {
+    if (prev.phase === 'countdown' && s.phase === 'running') fxGo(id);
+    if (prev.phase === 'running' && s.phase === 'lobby' && s.lastResult && (!prev.lastResult || prev.lastResult.round !== s.lastResult.round)) fxWin(id, s.lastResult);
+    if (s.phase === 'running') for (const tm of ['A', 'B']) if (s.scores[tm] > prev.scores[tm]) fxPlus(id, tm, s.scores[tm] - prev.scores[tm]);
+  }
+  draw(id);
+}
+function fxPlus(id, tm, d) {
+  const card = document.querySelector(`#gp${id} .team.${tm}`); if (!card) return;
+  const sc = card.querySelector('.score'); sc.classList.remove('pop'); void sc.offsetWidth; sc.classList.add('pop');
+  const p = document.createElement('span'); p.className = 'plus'; p.textContent = '+' + d; card.appendChild(p); setTimeout(() => p.remove(), 1000);
+  sndPlus();
+}
+async function fxGo(id) {
+  const el = $('gp' + id); el.classList.remove('cd'); el.classList.add('go'); el.querySelector('.over b').textContent = t('scrGo');
+  el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+  const c = centerOf(el); burst(c.x, c.y, ['#22c55e', '#86efac', '#fde68a', '#ffffff'], 70, .9); sndGo();
+  await sleep(1000); el.classList.remove('go');
+}
+async function fxWin(id, lr) {
+  const el = $('gp' + id), c = centerOf(el);
+  const cols = lr.winner ? COLORS[lr.winner] : ['#a5b4fc', '#818cf8', '#ffffff'];
+  sndWin();
+  for (let i = 0; i < 5; i++) {                                   // fireworks over the panel
+    burst(c.r.left + c.r.width * (.2 + Math.random() * .6), c.r.top + c.r.height * (.25 + Math.random() * .3), cols, 80, 1.05);
+    await sleep(260);
+  }
+  for (let i = 0; i < 25; i++) { burst(c.r.left + Math.random() * c.r.width, c.r.top, cols, 4, .3); await sleep(70); }   // confetti rain
+}
+
+// ---------- clock + countdown (every 100 ms) ----------
+const lastCd = {};
+setInterval(() => {
+  for (const id of ids) {
+    const g = S[id], s = g && g.state, el = $('gp' + id); if (!s || !el) continue;
+    const now = Date.now() + g.offset, tm = el.querySelector('.timer');
+    if (s.phase === 'running') {
+      const sec = Math.ceil(Math.max(0, s.endsAt - now) / 1000);
+      tm.textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); tm.classList.toggle('low', sec <= 10);
+    } else { tm.textContent = '—'; tm.classList.remove('low'); }
+    if (s.phase === 'countdown') {
+      const n = Math.max(1, Math.ceil((s.startsAt - now) / 1000));
+      el.classList.add('cd'); el.classList.remove('go');
+      if (lastCd[id] !== n) { lastCd[id] = n; const b = el.querySelector('.over b'); b.textContent = n; b.style.animation = 'none'; void b.offsetWidth; b.style.animation = ''; sndTick(); }
+    } else { el.classList.remove('cd'); lastCd[id] = 0; }
+  }
+}, 100);
+
+// ---------- connect ----------
+async function init() {
+  let list = []; try { list = await (await fetch('/api/games')).json(); } catch {}
+  ids = list.map((g) => g.id);
+  try { (JSON.parse(store.get('lb_screenGames') || 'null') || ids).forEach((i) => ids.includes(i) && shown.add(i)); } catch {}
+  if (!shown.size) ids.forEach((i) => shown.add(i));
+  if (soundOn) audio = null;    // browsers need a click first: the Sound button turns it on again
+  controls(); build();
+  ids.forEach((id) => {
+    const socket = io('/g' + id, { reconnectionDelayMax: 2000 }); S[id] = { state: null, offset: 0, socket };
+    socket.on('connect', () => socket.emit('screen:hello', null, (s) => s && onState(id, s)));
+    socket.on('state', (s) => onState(id, s));
+    socket.on('coin', (e) => {
+      coinFx($('gp' + id) && $('gp' + id).querySelector('.team.' + e.team), e);
+      if (soundOn) { tone(784, .1, 'triangle', .2); tone(1047, .12, 'triangle', .2, .1); tone(1319, .25, 'triangle', .2, .22); }
+    });
+    keepAlive(socket, (res) => { if (res.state) onState(id, res.state); else socket.emit('screen:hello', null, (s) => s && onState(id, s)); });
+  });
+  // hide the buttons after a while so the projector shows only the scoreboard
+  let quietT; const wake = () => { document.body.classList.remove('quiet'); clearTimeout(quietT); quietT = setTimeout(() => document.body.classList.add('quiet'), 6000); };
+  ['mousemove', 'keydown', 'touchstart'].forEach((e) => addEventListener(e, wake)); wake();
+}
+window.onLangChange = () => { controls(); build(); };
+init();
+</script>
+</body>
+</html>

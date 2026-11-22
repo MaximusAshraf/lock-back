@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock Back – Admin</title>
+<style>
+  :root { --a:#2f7df6; --b:#f59e0b; --bg:#10141c; --card:#1b2230; --text:#eef2f8; --muted:#8b97ab; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; padding:16px; }
+  .top { display:flex; align-items:center; justify-content:space-between; gap:10px 16px; flex-wrap:wrap; margin-bottom:14px; }
+  h1 { margin:0; font-size:1.5rem; }
+  .nav { display:flex; flex-wrap:wrap; gap:6px; }
+  .nav a { text-decoration:none; }
+  .nav button { background:#243049; padding:7px 12px; font-size:.9rem; }
+  .panel { background:var(--card); border-radius:12px; padding:12px 16px; margin-bottom:14px; }
+  .ctlTop { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid #27324a; }
+  .ctlRow { display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; }
+  .ctlRow.sec { margin-top:10px; padding-top:10px; border-top:1px dashed #27324a; gap:8px; }
+  .grp { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .gl { color:var(--muted); font-size:.85rem; font-weight:700; margin-inline-end:2px; }
+  .push { margin-inline-start:auto; }
+  .tools { background:var(--card); border-radius:12px; padding:10px 14px; margin-top:16px; }
+  .tools summary { margin:0; font-weight:700; } .toolsIn { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; margin-top:10px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--card); padding:12px 16px; border-radius:12px; margin-bottom:16px; }
+  .status { font-weight:800; font-size:1.1rem; margin-inline-end:auto; }
+  .timer { font-size:2rem; font-weight:800; font-variant-numeric:tabular-nums; min-width:90px; text-align:center; }
+  button { padding:8px 14px; border:0; border-radius:8px; font-weight:600; cursor:pointer; background:#34405a; color:var(--text); }
+  button:hover { filter:brightness(1.2); }
+  button.go { background:#22c55e; color:#04210f; } button.stop { background:#ef4444; color:#fff; }
+  input[type=number] { width:80px; padding:8px; border-radius:8px; border:2px solid #34405a; background:#0e121a; color:var(--text); }
+  .teams { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:700px) { .teams { grid-template-columns:1fr; } }
+  .team { background:var(--card); border-radius:12px; padding:16px; border-top:6px solid var(--c); }
+  .team.A { --c:var(--a); } .team.B { --c:var(--b); }
+  .head { display:flex; align-items:center; justify-content:space-between; }
+  .score { font-size:3.5rem; font-weight:800; line-height:1; text-align:center; }
+  .score small { display:block; font-size:.9rem; color:#fbbf24; font-weight:700; }
+  .resultLine { background:#1d2a1f; border:1px solid #2f5d3a; color:#bbf7d0; padding:10px 16px; border-radius:12px; margin-bottom:16px; font-weight:700; display:none; }
+  .resultLine.draw { background:#26263a; border-color:#3b3b5a; color:#cfd2ff; }
+  .adj { direction:ltr; display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 12px; }
+  .player { display:flex; align-items:center; gap:10px; padding:8px 10px; margin:5px 0; border-radius:10px; background:#252e41; border-inline-start:4px solid #22c55e; }
+  .player.off { border-inline-start-color:#ef4444; background:#2a2833; }
+  .player.off .nm { opacity:.7; }
+  .player.locked { background:#5b1a1a; }
+  .player.out { background:#2f3440; opacity:.6; }   /* no returns left: faded grey */
+  .plist { display:grid; grid-template-columns:repeat(auto-fill, minmax(165px, 1fr)); gap:8px; }
+  .plist .player { margin:0; padding:0 8px; gap:8px; min-width:0; height:54px; overflow:hidden; }
+  .lockSlot { flex:none; width:42px; height:20px; margin-inline-start:auto; text-align:end; }
+  .plist .empty { grid-column:1 / -1; }
+  .dot { width:11px; height:11px; border-radius:50%; flex:none; }
+  .dot.on { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.25); } .dot.off { background:#ef4444; }
+  .who { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .nm { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub { font-size:.8rem; color:var(--muted); display:flex; gap:6px; flex-wrap:nowrap; align-items:center; white-space:nowrap; overflow:hidden; }
+  .sub .st { overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .sub .pin { flex:none; }
+  .sub .pin { margin:0; background:#161d2b; padding:0 6px; border-radius:6px; }
+  .sub .st.on { color:#4ade80; } .sub .st.off { color:#f87171; }
+  .rules { margin-top:12px; }
+  .rulesHead { display:flex; flex-wrap:wrap; gap:6px 14px; align-items:baseline; margin-bottom:10px; font-size:1.05rem; }
+  .rulesHead .hint { color:#8b97ab; font-size:.85rem; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:10px; }
+  .tile { background:#0e1420; border:1px solid #27324a; border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+  .tile .tt { font-weight:800; }
+  .tile .hint { color:#8b97ab; font-size:.8rem; line-height:1.35; }
+  .tile.off { opacity:.55; }
+  .stepper { display:flex; align-items:stretch; gap:6px; }
+  .stepper input { flex:1; min-width:0; width:3rem; padding:8px 4px; border-radius:8px; border:1px solid #27324a; background:#161d2b; color:inherit; font-size:1.2rem; font-weight:800; text-align:center; }
+  .stepper button { width:2.6rem; font-size:1.3rem; font-weight:800; border-radius:8px; }
+  .lockTag { display:inline-block; background:#ef4444; color:#fff; font-weight:800; font-size:.75rem; line-height:20px; height:20px; padding:0 7px; border-radius:99px; font-variant-numeric:tabular-nums; }
+  .count { display:flex; gap:12px; font-size:.9rem; margin:2px 0 6px; }
+  .count .on { color:#4ade80; } .count .off { color:#f87171; }
+  .pin { direction:ltr; display:inline-block; font-family:ui-monospace,monospace; color:var(--muted); margin-inline-start:8px; }
+  .x { background:none; color:var(--muted); padding:2px 8px; }
+  .team details { margin-top:14px; } summary { cursor:pointer; color:var(--muted); }
+  .nums { direction:ltr; display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .nums span { font-family:ui-monospace,monospace; padding:3px 8px; border-radius:6px; background:#252e41; }
+  .nums span.taken { background:var(--c); color:#fff; }
+  .empty { color:var(--muted); padding:8px 0; }
+  #cdBadge { display:none; background:#f59e0b; color:#1c1200; font-weight:800; padding:6px 12px; border-radius:99px; animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity:.6; } }
+  .sw { display:flex; align-items:center; gap:10px; cursor:pointer; color:var(--muted); font-size:.9rem; margin-bottom:16px; user-select:none; }
+  .sw input { display:none; }
+  .sw .track { width:42px; height:24px; border-radius:99px; background:#34405a; position:relative; transition:.15s; flex:none; }
+  .sw .track::after { content:''; position:absolute; top:3px; inset-inline-start:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:.15s; }
+  .sw input:checked + .track { background:#f59e0b; } .sw input:checked + .track::after { inset-inline-start:21px; }
+  .sw input:checked ~ span.lbl { color:#fbbf24; font-weight:700; }
+  .tools .sw { margin:0; }
+  .botRow { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .botRow input { width:64px; }
+  .botRow b { color:var(--muted); font-size:.9rem; }
+  .player.locked .nm { color:#fff; }
+  .player.locked { box-shadow:0 0 0 2px #ef4444 inset; }
+  .player.out { box-shadow:0 0 0 2px #6b7280 inset; }
+  .player.out .lockTag { background:#6b7280; }
+  .feed { background:var(--card); border-radius:12px; padding:12px 16px; margin-top:16px; }
+  .feed h3 { margin:0 0 8px; font-size:1rem; color:var(--muted); }
+  .ev { display:flex; gap:10px; align-items:baseline; padding:5px 0; border-top:1px solid #222c40; font-size:.95rem; }
+  .ev:first-of-type { border-top:0; }
+  .ev .tm { color:var(--muted); font-size:.8rem; font-variant-numeric:tabular-nums; flex:none; direction:ltr; }
+  .ev .A { color:#7ab0ff; font-weight:700; } .ev .B { color:#fbbf24; font-weight:700; }
+  .winsBar { display:flex; align-items:stretch; gap:10px; margin-bottom:16px; }
+  .winsBar .w { flex:1; display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--card); border-radius:12px; padding:10px 18px; border-top:5px solid var(--c); }
+  .winsBar .w.A { --c:var(--a); } .winsBar .w.B { --c:var(--b); }
+  .winsBar .w span { font-weight:700; font-size:1.1rem; }
+  .winsBar .w .vals { display:flex; align-items:baseline; gap:12px; } .winsBar .w small { font-size:1.1rem; font-weight:800; color:#facc15; }
+  .winsBar .w b { font-size:2.6rem; line-height:1; color:#fbbf24; font-variant-numeric:tabular-nums; }
+  .winsBar .mid { align-self:center; text-align:center; color:var(--muted); font-size:.85rem; font-weight:700; max-width:120px; }
+  .winsBar .mid i { display:block; font-style:normal; font-size:1.6rem; }
+  #numsView { position:fixed; inset:0; background:var(--bg); z-index:30; display:none; flex-direction:column; padding:2vh 3vw; }
+  #numsView .nh { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:1.5vh; }
+  #numsView .nh h2 { margin:0; font-size:clamp(1.4rem, 4vh, 3rem); }
+  #numsView .nh p { margin:0; color:var(--muted); font-size:clamp(1rem, 2.6vh, 1.8rem); }
+  #numsView .nh div:last-child { display:flex; gap:8px; }
+  #numsView .cols { flex:1; min-height:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap:3vw; }
+  #numsView .col { display:flex; flex-direction:column; min-height:0; }
+  #numsView .col h3 { margin:0 0 1vh; text-align:center; font-size:clamp(1.3rem, 4vh, 2.8rem); padding-bottom:.6vh; border-bottom:.6vh solid var(--c); }
+  #numsView .col.A { --c:var(--a); } #numsView .col.B { --c:var(--b); }
+  #numsView .grid5 { flex:1; min-height:0; display:grid; grid-template-columns:repeat(5, 1fr); gap:.8vh .8vw; direction:ltr; align-content:space-evenly; }
+  #numsView .grid5 span { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:800; text-align:center; font-size:clamp(1.3rem, min(3.4vw, 5.6vh), 4.5rem); color:#fff; line-height:1.15; }
+  #numsView .grid5 span.on { color:#22c55e; }
+  #numsView .grid5 span.off { color:#ef4444; }
+  #numsView .legend { display:flex; gap:1.4vw; flex-wrap:wrap; margin-top:.4vh; font-size:clamp(.9rem, 2.2vh, 1.5rem); font-weight:700; }
+  #numsView .legend .on { color:#22c55e; } #numsView .legend .off { color:#ef4444; } #numsView .legend .free { color:#fff; }
+  /* bigger sizes do not fit on one screen, so the lists scroll */
+  #numsView.lg .cols, #numsView.xl .cols { overflow-y:auto; align-items:start; }
+  #numsView.lg .col, #numsView.xl .col { min-height:auto; }
+  #numsView.lg .col h3, #numsView.xl .col h3 { position:sticky; top:0; background:var(--bg); z-index:1; }
+  #numsView.lg .grid5, #numsView.xl .grid5 { flex:none; align-content:start; gap:1.2vh 1vw; }
+  #numsView.lg .grid5 { grid-template-columns:repeat(3, 1fr); }
+  #numsView.lg .grid5 span { font-size:clamp(2.2rem, min(5.4vw, 9.5vh), 7rem); }
+  #numsView.xl .grid5 { grid-template-columns:repeat(2, 1fr); }
+  #numsView.xl .grid5 span { font-size:clamp(3rem, min(8.4vw, 16vh), 12rem); }
+  #numsView .nh button.on { background:#f59e0b; color:#1c1200; }
+  .topBtns { display:flex; gap:8px; }
+  #shareModal { position:fixed; inset:0; background:rgba(5,8,14,.8); display:none; align-items:center; justify-content:center; z-index:20; padding:16px; }
+  #shareModal .box { background:var(--card); border-radius:16px; padding:20px; width:100%; max-width:760px; max-height:92vh; overflow:auto; }
+  #shareModal h2 { margin:0 0 4px; } #shareModal .hint { color:var(--muted); margin:0 0 14px; }
+  .qrs { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; }
+  .qr { background:#0e1420; border-radius:12px; padding:14px; text-align:center; }
+  .qr .code { background:#fff; border-radius:10px; padding:6px; width:100%; max-width:300px; margin:0 auto 10px; }
+  .qr .code svg { display:block; width:100%; height:auto; }
+  .qr .url { direction:ltr; font-family:ui-monospace,monospace; word-break:break-all; margin-bottom:10px; }
+  .qr .acts { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+</style>
+</head>
+<body data-page="admin">
+<header class="top">
+  <h1>🔒 <span data-i18n="admin"></span> · <span id="gameLbl"></span></h1>
+  <nav class="nav">
+    <a href="/admin"><button data-i18n="allGames"></button></a>
+    <a href="screen" target="_blank"><button data-i18n="bigScreen"></button></a>
+    <button id="numsBtn" data-i18n="showNumbers"></button>
+    <a href="/coins" target="_blank"><button data-i18n="printCoins"></button></a>
+    <a href="test" target="_blank"><button data-i18n="testBoardBtn"></button></a>
+    <a href="sim" target="_blank"><button data-i18n="simBtn"></button></a>
+    <button id="shareBtn" data-i18n="share"></button>
+    <button id="langBtn"></button>
+  </nav>
+</header>
+
+<div id="numsView">
+  <div class="nh">
+    <div><h2 id="numsGame"></h2><p data-i18n="numbersPick"></p><div class="legend" id="numsLegend"></div></div>
+    <div><button id="numsSize"></button><button id="numsFree" data-i18n="freeOnly"></button><button id="numsFull" data-i18n="fullscreen"></button><button class="stop" id="numsClose" data-i18n="close"></button></div>
+  </div>
+  <div class="cols">
+    <div class="col A"><h3 id="numsTA"></h3><div class="grid5" id="numsA"></div></div>
+    <div class="col B"><h3 id="numsTB"></h3><div class="grid5" id="numsB"></div></div>
+  </div>
+</div>
+
+<div id="shareModal"><div class="box"><h2 data-i18n="shareTitle"></h2><p class="hint" data-i18n="shareHint"></p><div class="qrs" id="qrs"></div><p style="text-align:end;margin:14px 0 0"><button id="shareClose" data-i18n="close"></button></p></div></div>
+
+<div id="offline" class="bar" style="display:none;background:#7f1d1d">
+  <div class="status" id="offMsg"></div>
+  <button class="go" id="startServer" data-i18n="startServer"></button>
+</div>
+
+<section class="panel ctl">
+  <div class="ctlTop">
+    <div class="status" id="status"></div>
+    <div id="cdBadge"></div>
+    <div class="timer" id="timer"></div>
+  </div>
+  <div class="ctlRow">
+    <div class="grp"><span class="gl" data-i18n="timeLabel"></span>
+      <button class="go" data-m="1" data-i18n="start1"></button>
+      <button class="go" data-m="2" data-i18n="start2"></button>
+      <button class="go" data-m="3" data-i18n="start3"></button>
+    </div>
+    <div class="grp">
+      <input type="number" id="custom" step="0.1" min="0.05" value="3.5" data-i18n-title="customTitle">
+      <button class="go" id="startCustom" data-i18n="startCustom"></button>
+    </div>
+    <div class="grp push"><button class="stop" id="end" data-i18n="endRound"></button></div>
+  </div>
+  <div class="ctlRow sec">
+    <button id="showNums"></button>
+    <button id="block"></button>
+    <button class="stop push" id="reset" data-i18n="resetGame"></button>
+  </div>
+</section>
+
+<section class="panel rules">
+  <div class="rulesHead"><b>⚙️ <span data-i18n="rulesTitle"></span></b><span class="hint" data-i18n="rulesHint"></span></div>
+  <div class="tiles">
+    <div class="tile">
+      <div class="tt">💣 <span data-i18n="bombsLbl"></span></div>
+      <label class="sw"><input type="checkbox" id="bombsOn" checked><span class="track"></span><span class="lbl" data-i18n="bombsHint"></span></label>
+      <div class="tt" style="margin-top:.5rem"><span data-i18n="bombSecLbl"></span></div>
+      <div class="stepper"><button type="button" data-st="bombSec" data-d="-5">−</button><input type="number" id="bombSec" min="5" max="300" step="5" value="25"><button type="button" data-st="bombSec" data-d="5">+</button></div>
+    </div>
+    <div class="tile" id="retTile">
+      <div class="tt">❤️ <span data-i18n="maxReturnsLbl"></span></div>
+      <div class="stepper"><button type="button" data-st="maxReturns" data-d="-1">−</button><input type="number" id="maxReturns" min="0" max="99" step="1" value="5"><button type="button" data-st="maxReturns" data-d="1">+</button></div>
+      <label class="sw"><input type="checkbox" id="unlimited"><span class="track"></span><span class="lbl" data-i18n="unlimitedLbl"></span></label>
+    </div>
+    <div class="tile">
+      <div class="tt">⏱ <span data-i18n="respawnLbl"></span></div>
+      <div class="stepper"><button type="button" data-st="respawnSec" data-d="-1">−</button><input type="number" id="respawnSec" min="1" max="300" step="1" value="7"><button type="button" data-st="respawnSec" data-d="1">+</button></div>
+      <span class="hint" data-i18n="lifeHint"></span>
+    </div>
+  </div>
+</section>
+
+<div class="resultLine" id="resultLine"></div>
+
+<div class="winsBar" id="winsBar"></div>
+
+<div class="teams" id="teams"></div>
+
+<div class="feed"><h3>📋 <span data-i18n="activity"></span></h3><div id="feed"></div></div>
+
+<details class="tools"><summary>🧪 <span data-i18n="testTools"></span></summary><div class="toolsIn">
+  <label class="sw"><input type="checkbox" id="allowRepeat"><span class="track"></span><span class="lbl" data-i18n="testRepeat"></span></label>
+  <div class="botRow">
+    <b>🤖 <span data-i18n="botsLabel"></span></b>
+    <input type="number" id="botCount" min="1" max="50" value="3" data-i18n-title="botCount">
+    <button id="addBotA"></button><button id="addBotB"></button>
+    <button class="stop" id="rmBots" data-i18n="removeBots"></button>
+    <label class="sw"><input type="checkbox" id="botsPlay" checked><span class="track"></span><span class="lbl" data-i18n="botsPlay"></span></label>
+  </div>
+</div></details>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/i18n.js"></script>
+<script src="/live.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const GAME = +((location.pathname.match(/\/g\/(\d+)\//) || [])[1] || 1);
+const socket = io('/g' + GAME, { reconnectionDelayMax: 2000 });
+socket.on('forbidden', () => location.reload());          // the admin key was reset
+let state = null, offset = 0, offKey = 'offMsg';
+$('status').textContent = '…';
+
+const setOff = (k) => { offKey = k; $('offMsg').textContent = t(k); };
+setOff('offMsg');
+
+socket.on('connect', () => { $('offline').style.display = 'none'; socket.emit('admin:hello', null, (s) => render(s)); });
+socket.on('disconnect', () => { $('offline').style.display = 'flex'; setOff('offMsg'); $('status').textContent = t('disconnected'); });
+socket.on('state', render);
+
+const LAUNCHER = `http://${location.hostname}:3001`;
+$('startServer').onclick = async () => {
+  setOff('startingServer');
+  try {
+    await fetch(LAUNCHER + '/start', { method: 'POST' });
+    setOff('serverStarting');
+  } catch { setOff('launcherDown'); }
+};
+
+document.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => start(b.dataset.m));
+$('startCustom').onclick = () => start($('custom').value);
+$('end').onclick = () => confirm(t('confirmEnd')) && socket.emit('admin:end');
+$('reset').onclick = () => askReset((block) => socket.emit('admin:reset', { block }));
+$('showNums').onclick = () => socket.emit('admin:showNumbers', !state?.showNumbers);
+$('block').onclick = () => {
+  if (state?.blocked) socket.emit('admin:block', false);
+  else if (confirm(t('confirmBlock'))) socket.emit('admin:block', true);
+};
+function start(m) { socket.emit('admin:start', { minutes: parseFloat(m) }, (r) => r?.error && alert(t(r.error))); }
+
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+window.openNums = {};
+
+function render(s) {
+  if (s) { state = s; offset = s.now - Date.now(); }
+  s = state;
+  if (!s) return;
+  $('showNums').textContent = '🔢 ' + t(s.showNumbers ? 'hideNumsOnScreen' : 'showNumsOnScreen');
+  $('block').textContent = (s.blocked ? '✅ ' + t('allowPlayers') : '⛔ ' + t('blockPlayers'));
+  $('block').className = s.blocked ? 'go' : 'stop';
+  $('allowRepeat').checked = !!s.allowRepeat;
+  // the setting boxes follow the game unless the admin is typing in one of them
+  $('bombsOn').checked = !!s.bombsEnabled;
+  $('unlimited').checked = !!s.unlimitedReturns; $('maxReturns').disabled = !!s.unlimitedReturns;
+  document.querySelectorAll('[data-st=maxReturns]').forEach((b) => (b.disabled = !!s.unlimitedReturns));
+  if (document.activeElement !== $('maxReturns')) $('maxReturns').value = s.maxReturns;
+  if (document.activeElement !== $('respawnSec')) $('respawnSec').value = s.lockMs / 1000;
+  if (document.activeElement !== $('bombSec')) $('bombSec').value = s.bombMs / 1000;
+  $('botsPlay').checked = !!s.botsPlay;
+  $('addBotA').textContent = t('addBots', { team: teamName('A') });
+  $('addBotB').textContent = t('addBots', { team: teamName('B') });
+  $('winsBar').innerHTML = `<div class="w A"><span>${esc(teamName('A'))}</span><div class="vals"><small>🪙 ${s.coins.A}</small><b>${s.wins.A}</b></div></div>
+    <div class="mid"><i>🏆</i>${esc(t('winsBarTitle'))}</div>
+    <div class="w B"><div class="vals"><b>${s.wins.B}</b><small>🪙 ${s.coins.B}</small></div><span>${esc(teamName('B'))}</span></div>`;
+  const lr = s.phase === 'lobby' ? s.lastResult : null;
+  const rl = $('resultLine');
+  rl.style.display = lr ? 'block' : 'none';
+  if (lr) {
+    rl.className = 'resultLine' + (lr.winner ? '' : ' draw');
+    rl.textContent = '🏆 ' + t('resultTitle', { n: lr.round }) + ' — ' + (lr.winner ? t('teamWon', { team: teamName(lr.winner) }) : t('draw')) + '  (' + lr.scores.A + ' – ' + lr.scores.B + ')';
+  }
+  const running = s.phase === 'running';
+  $('status').textContent = s.phase === 'countdown' ? t('stStarting', { n: s.round })
+    : running ? t('stRunning', { n: s.round })
+    : s.round ? t('stFinished', { n: s.round }) : t('stLobby');
+  const taken = new Set(s.taken);
+  $('teams').innerHTML = ['A', 'B'].map((tm) => {
+    const T = s.teams[tm];
+    const nowS = Date.now() + offset;
+    const sorted = [...T.players].sort((a, b) => (b.connected - a.connected) || (a.joinedAt - b.joinedAt));
+    const onlineN = sorted.filter((p) => p.connected).length;
+    const players = sorted.map((p) => {
+      const lockedNow = p.lockedUntil > nowS;
+      const outNow = lockedNow && p.out;
+      return `
+      <div class="player ${lockedNow ? (outNow ? 'out' : 'locked') : ''} ${p.connected ? '' : 'off'}">
+        <span class="dot ${p.connected ? 'on' : 'off'}"></span>
+        <div class="who">
+          <span class="nm">${p.bot ? '🤖 ' : ''}${esc(playerName(p.name, p.pin))}</span>
+          <span class="sub"><span class="pin">${p.pin}</span>
+            ${p.connected ? `<span class="st on">${esc(t('online'))}</span>` : `<span class="st off" data-seen="${p.lastSeen}">${esc(t('offline'))}</span>`}<span class="lockSlot">${outNow ? `<span class="lockTag">💀</span>` : lockedNow ? `<span class="lockTag" data-lock="${p.lockedUntil}">🔒 ${Math.ceil((p.lockedUntil - nowS) / 1000)}</span>` : ''}</span><span class="st">${p.left === null ? '♾️' : '❤️ ' + p.left}</span></span>
+        </div>
+        <button class="x" onclick="kick('${p.pin}')" title="${esc(t('removePlayer'))}">✕</button>
+      </div>`; }).join('') || `<div class="empty">${esc(t('noPlayers'))}</div>`;
+    const nums = s.numbers[tm].map((n) => `<span class="${taken.has(n) ? 'taken' : ''}">${n}</span>`).join('');
+    return `<div class="team ${tm}">
+      <div class="head"><h2>${esc(teamName(tm))} (${T.players.length})</h2><div class="score">${T.score}</div></div>
+      <div class="adj">
+        ${[-5,-2,-1].map((d) => `<button onclick="pts('${tm}',${d})">${d}</button>`).join('')}
+        ${[1,2,5].map((d) => `<button onclick="pts('${tm}',${d})">+${d}</button>`).join('')}
+        <button onclick="custom('${tm}')">±…</button>
+      </div>
+      <div class="count"><span class="on">● ${esc(t('onlineN', { n: onlineN }))}</span><span class="off">● ${esc(t('offlineN', { n: T.players.length - onlineN }))}</span></div>
+      <div class="plist">${players}</div>
+      <details ${window.openNums[tm] ? 'open' : ''} ontoggle="openNums['${tm}']=this.open">
+        <summary>${esc(t('numbersSummary', { team: teamName(tm), n: T.players.length }))}</summary>
+        <div class="nums" style="--c:var(--${tm.toLowerCase()})">${nums}</div>
+      </details>
+    </div>`;
+  }).join('');
+
+  // recent activity
+  const who = (x) => `<span class="${x.team}">${x.bot ? '🤖 ' : ''}${esc(playerName(x.name, x.pin))}</span>`;
+  $('feed').innerHTML = (s.feed || []).length ? s.feed.slice(0, 12).map((e) => {
+    const key = e.type === 'lock' ? 'evLock' : e.type === 'free' ? 'evFree' : 'evSelf';
+    const icon = e.type === 'lock' ? '🔒' : e.type === 'free' ? '🔓' : '⚠️';
+    const clock = new Date(e.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    return `<div class="ev"><span class="tm">${clock}</span><span>${icon} ${t(key, { by: who(e.by), target: who(e.target) })}</span></div>`;
+  }).join('') : `<div class="empty">${esc(t('noActivity'))}</div>`;
+  renderNums();
+  tick();
+}
+$('addBotA').onclick = () => socket.emit('admin:addBots', { team: 'A', count: $('botCount').value });
+$('addBotB').onclick = () => socket.emit('admin:addBots', { team: 'B', count: $('botCount').value });
+$('rmBots').onclick = () => socket.emit('admin:removeBots');
+// the rules apply the moment they change: switches, the number boxes and the − / + buttons
+const sendRule = (rule) => socket.emit('admin:settings', rule);
+$('bombsOn').onchange = () => sendRule({ bombsEnabled: $('bombsOn').checked });
+$('unlimited').onchange = () => sendRule({ unlimited: $('unlimited').checked });
+$('maxReturns').onchange = () => sendRule({ maxReturns: $('maxReturns').value });
+$('respawnSec').onchange = () => sendRule({ respawnSec: $('respawnSec').value });
+$('bombSec').onchange = () => sendRule({ bombSec: $('bombSec').value });
+document.querySelectorAll('[data-st]').forEach((b) => (b.onclick = () => {
+  const el = $(b.dataset.st), v = Math.min(+el.max, Math.max(+el.min, (+el.value || 0) + +b.dataset.d));
+  el.value = v; sendRule({ [b.dataset.st]: v });
+}));
+$('botsPlay').onchange = (e) => socket.emit('admin:botsPlay', e.target.checked);
+$('allowRepeat').onchange = (e) => socket.emit('admin:allowRepeat', e.target.checked);
+function pts(team, delta) { socket.emit('admin:points', { team, delta }); }
+function custom(team) { const v = parseFloat(prompt(t('promptPoints'), '1')); if (!isNaN(v)) pts(team, v); }
+function kick(pin) { if (confirm(t('confirmKick'))) socket.emit('admin:kick', { pin }); }
+
+const ago = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return s < 60 ? s + (LANG === 'ar' ? ' ث' : 's') : Math.floor(s / 60) + (LANG === 'ar' ? ' د' : 'm'); };
+function tick() {
+  if (!state) return;
+  const now = Date.now() + offset;
+  document.querySelectorAll('[data-seen]').forEach((el) => { el.textContent = t('offline') + (+el.dataset.seen ? ' · ' + ago(now - el.dataset.seen) : ''); });
+  document.querySelectorAll('[data-lock]').forEach((el) => { el.textContent = '🔒 ' + Math.max(0, Math.ceil((el.dataset.lock - now) / 1000)); });
+  const cd = state.phase === 'countdown';
+  $('cdBadge').style.display = cd ? 'block' : 'none';
+  if (cd) $('cdBadge').textContent = t('startsInShort', { n: state.round, s: Math.max(1, Math.ceil((state.startsAt - now) / 1000)) });
+  if (state.phase === 'running') {
+    const sec = Math.ceil(Math.max(0, state.endsAt - now) / 1000);
+    $('timer').textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  } else $('timer').textContent = '—';
+}
+setInterval(tick, 250);
+
+keepAlive(socket, (res) => {
+  if (res.state) render(res.state);
+  else socket.emit('admin:hello', null, (s) => render(s));
+});
+
+// ----- big numbers view (for screen sharing) -----
+let numsSize = 0, numsFreeOnly = false;           // 0 normal, 1 large, 2 very large
+try { numsSize = Math.min(2, Math.max(0, +localStorage.getItem('lb_numsSize') || 0)); } catch {}
+function renderNums() {
+  if (!state || $('numsView').style.display !== 'flex') return;
+  $('numsView').classList.toggle('lg', numsSize === 1);
+  $('numsView').classList.toggle('xl', numsSize === 2);
+  $('numsSize').textContent = '🔎 ' + t('sizeLbl') + ': ' + t(['sizeNormal', 'sizeLarge', 'sizeXL'][numsSize]);
+  $('numsFree').classList.toggle('on', numsFreeOnly);
+  // green = player online, red = joined but offline, white = free
+  const status = {};
+  for (const tm of ['A', 'B']) for (const p of state.teams[tm].players) status[p.pin] = p.connected ? 'on' : 'off';
+  $('numsLegend').innerHTML = `<span class="on">● ${esc(t('online'))}</span><span class="off">● ${esc(t('offline'))}</span><span class="free">● ${esc(t('freeNum'))}</span>`;
+  $('numsGame').textContent = t('game', { n: GAME });
+  $('numsTA').textContent = teamName('A'); $('numsTB').textContent = teamName('B');
+  for (const tm of ['A', 'B']) $('nums' + tm).innerHTML = state.numbers[tm].filter((n) => !numsFreeOnly || !status[n]).map((n) => `<span class="${status[n] || ''}">${n}</span>`).join('');
+}
+function showNums(on) {
+  $('numsView').style.display = on ? 'flex' : 'none';
+  if (on) renderNums(); else if (document.fullscreenElement) document.exitFullscreen();
+}
+$('numsSize').onclick = () => { numsSize = (numsSize + 1) % 3; try { localStorage.setItem('lb_numsSize', numsSize); } catch {} $('numsView').querySelector('.cols').scrollTop = 0; renderNums(); };
+$('numsFree').onclick = () => { numsFreeOnly = !numsFreeOnly; renderNums(); };
+$('numsBtn').onclick = () => showNums(true);
+$('numsClose').onclick = () => showNums(false);
+$('numsFull').onclick = () => { const el = $('numsView'); document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen?.(); };
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') showNums(false); });
+
+// ----- share / QR -----
+let shareData = null;
+async function openShare() {
+  $('shareModal').style.display = 'flex';
+  shareIdx = -1;
+  try { shareData = await (await fetch('/api/share?game=' + GAME)).json(); } catch { shareData = []; }
+  renderShare();
+}
+let shareIdx = -1;
+function pickShareIp(i) { shareIdx = i; shareChoose(shareData[i].ip); renderShare(); }
+function renderShare() {
+  if (!shareData) return;
+  if (!shareData.length) { $('qrs').innerHTML = `<p>${esc(t('noNetwork'))}</p>`; return; }
+  if (shareIdx < 0 || shareIdx >= shareData.length) shareIdx = shareIndex(shareData);
+  const s = shareData[shareIdx], i = shareIdx;
+  $('qrs').innerHTML = shareTabs(shareData, i, 'pickShareIp') + `
+    <div class="qr" style="max-width:340px;margin:0 auto">
+      <div class="code">${s.svg}</div>
+      <div class="url">${esc(s.join)}</div>
+      <div class="acts">
+        <button class="go" onclick="copyLink(${i}, this)">${esc(t('copy'))}</button>
+        <button onclick="window.open('${esc(s.join)}', '_blank')">${esc(t('open'))}</button>
+        ${navigator.share ? `<button onclick="navigator.share({ title: 'Lock Back', url: '${esc(s.join)}' }).catch(()=>{})">${esc(t('shareVia'))}</button>` : ''}
+      </div>
+    </div>`;
+}
+async function copyLink(i, btn) {
+  const url = shareData[i].join;
+  try { await navigator.clipboard.writeText(url); }
+  catch { const ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  btn.textContent = t('copied'); setTimeout(() => (btn.textContent = t('copy')), 1500);
+}
+$('shareBtn').onclick = openShare;
+$('shareClose').onclick = () => ($('shareModal').style.display = 'none');
+$('shareModal').onclick = (e) => { if (e.target === $('shareModal')) $('shareModal').style.display = 'none'; };
+
+const setGameLbl = () => ($('gameLbl').textContent = t('game', { n: GAME }));
+setGameLbl();
+window.onLangChange = () => {
+  setGameLbl();
+  renderNums();
+  renderShare();
+  setOff(offKey);
+  if (!socket.connected) $('status').textContent = t('disconnected');
+  render();
+};
+</script>
+</body>
+</html>

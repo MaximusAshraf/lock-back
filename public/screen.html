@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock Back – Screen</title>
+<style>
+  :root { --a:#2f7df6; --b:#f59e0b; --bg:#0b0f17; --card:#161d2b; --text:#eef2f8; --muted:#8b97ab; }
+  * { box-sizing:border-box; }
+  html, body { height:100%; }
+  body { margin:0; background:radial-gradient(120% 90% at 50% 0%, #17203a 0%, var(--bg) 70%); color:var(--text); font-family:system-ui,sans-serif; overflow:hidden; display:flex; flex-direction:column; gap:1.2vh; padding:1.4vh 1.4vw; }
+  button { border:0; border-radius:8px; padding:6px 12px; font-weight:700; background:#34405a; color:var(--text); cursor:pointer; opacity:.35; }
+  button:hover { opacity:1; }
+
+  .head { display:flex; align-items:center; justify-content:space-between; gap:2vw; }
+  .brand { font-size:clamp(1.2rem, 3vh, 2.4rem); font-weight:900; letter-spacing:.02em; }
+  .brand small { color:var(--muted); font-weight:700; margin-inline-start:.6em; }
+  .clock { font-size:clamp(2.4rem, 9vh, 7rem); font-weight:900; font-variant-numeric:tabular-nums; line-height:1; transition:color .3s; }
+  .clock.low { color:#ef4444; animation:pulse .5s ease-in-out infinite alternate; }
+  .status { font-size:clamp(1rem, 2.6vh, 2rem); font-weight:800; color:var(--muted); min-width:12ch; text-align:end; }
+  .status.live { color:#22c55e; } .status.live::before { content:'● '; animation:blink 1s infinite; }
+
+  /* tug-of-war bar */
+  .tug { height:2.4vh; border-radius:99px; background:#222c40; overflow:hidden; display:flex; direction:ltr; }
+  .tug i { display:block; height:100%; transition:width .8s cubic-bezier(.2,.9,.2,1); }
+  .tug .A { background:linear-gradient(90deg,#1d4ed8,var(--a)); } .tug .B { background:linear-gradient(90deg,var(--b),#d97706); }
+
+  .teams { flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:2vw; }
+  .team { background:var(--card); border-radius:2vh; border-top:1.2vh solid var(--c); padding:1.4vh 1.2vw; display:flex; flex-direction:column; gap:1vh; min-height:0; position:relative; transition:box-shadow .4s; }
+  .team.lead { box-shadow:0 0 6vh -1vh var(--c); }
+  .team.A { --c:var(--a); } .team.B { --c:var(--b); }
+  .th { display:flex; align-items:center; justify-content:space-between; gap:1vw; }
+  .th .tt { display:flex; flex-direction:column; gap:.4vh; min-width:0; }
+  .th h2 { margin:0; font-size:clamp(1.3rem, 4.4vh, 3rem); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .th .w { color:#fbbf24; font-weight:800; font-size:clamp(1rem, 2.6vh, 2rem); }
+  .score { font-size:clamp(3rem, 14vh, 10rem); font-weight:900; line-height:.9; font-variant-numeric:tabular-nums; color:var(--c); direction:ltr; }
+  .score.pop { animation:pop .5s cubic-bezier(.2,1.6,.4,1); }
+  .plist { flex:1; min-height:0; overflow:hidden; display:flex; flex-wrap:wrap; align-content:flex-start; gap:.9vh .7vw; }
+  .p { display:flex; align-items:center; gap:.5em; padding:.5vh 1em; border-radius:99px; background:#222c40; font-weight:700; font-size:calc(clamp(.9rem, 2.4vh, 1.7rem) * var(--k, 1)); transition:background .3s, transform .3s, opacity .3s; }
+  .p.off { opacity:.35; }
+  .p.locked { background:#b91c1c; animation:shake .45s; }
+  .p.out { background:#3b414e; color:#9aa3b2; opacity:.5; }   /* no returns left: faded grey, not red */
+  /* numbers mode: the grid (columns, rows, font sizes) is computed by fitNums() so every card fits with no scrolling */
+  .plist.nums { display:grid; gap:.8vh .6vw; align-content:stretch; }
+  .plist.nums .p { flex-direction:column; align-items:center; justify-content:center; gap:0; border-radius:1.2vh; padding:0 .2vw; text-align:center; min-width:0; min-height:0; overflow:hidden; }
+  .plist.nums .p .nm { font-size:var(--nm, 14px); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.25; }
+  .plist.nums .p .pn { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-weight:900; direction:ltr; font-size:var(--pn, 24px); line-height:1.1; letter-spacing:.04em; white-space:nowrap; }
+  .plist.nums .p { position:relative; }
+  .lkw { position:absolute; top:.3vh; inset-inline-end:.4vw; font-size:calc(clamp(.7rem, 1.8vh, 1.3rem) * var(--k, 1)); font-weight:900; }
+  .plist.nums.nonames .p .nm, .plist.nums.nonames .p .lkw { display:none; }     /* names hidden: a locked card is simply red */
+  .p .lk { font-variant-numeric:tabular-nums; font-weight:900; }
+
+
+  /* full-screen overlays: countdown + round result */
+  #ov { position:fixed; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:2vh; background:rgba(5,8,14,.86); z-index:5; text-align:center; }
+  #ov.show { display:flex; }
+  #ov .big { font-size:clamp(8rem, 50vh, 40rem); font-weight:900; line-height:1; animation:zoom 1s ease-out infinite; }
+  #ov .msg { font-size:clamp(2rem, 9vh, 7rem); font-weight:900; }
+  #ov .sub { font-size:clamp(1.2rem, 4vh, 3rem); color:var(--muted); font-weight:800; }
+  #ov.win .msg { animation:pop .8s cubic-bezier(.2,1.6,.4,1); }
+  .confetti { position:fixed; top:-3vh; width:1.2vh; height:2vh; z-index:6; animation:fall linear forwards; pointer-events:none; }
+
+  /* bombs: one row per active bomb, aimed team's colour */
+  #bombsBar { display:flex; gap:1.4vw; justify-content:center; flex-wrap:wrap; }
+  #bombsBar .bb { display:flex; align-items:center; gap:1vw; padding:.6vh 1.6vw; border-radius:99px; background:#7f1d1d; font-weight:900; font-size:clamp(1rem, 3.4vh, 2.6rem); animation:alarm .6s infinite alternate; }
+  #bombsBar .bb img { height:clamp(2.4rem, 7vh, 5rem); width:auto; }
+  #bombsBar .bb .tm { padding:0 .6em; border-radius:99px; color:#fff; } #bombsBar .bb .tm.A { background:var(--a); } #bombsBar .bb .tm.B { background:var(--b); }
+  #bombsBar .bb .tl { font-variant-numeric:tabular-nums; direction:ltr; }
+  @keyframes alarm { to { background:#dc2626; box-shadow:0 0 4vh #ef4444; } }
+  #boom { position:fixed; inset:0; z-index:8; display:flex; align-items:center; justify-content:center; font-size:70vh; pointer-events:none; opacity:0; background:rgba(255,120,20,.35); }
+  #boom.go { animation:boomfx 1.1s ease-out; }
+  @keyframes boomfx { 0% { opacity:1; transform:scale(.3); } 40% { opacity:1; transform:scale(1.1); } 100% { opacity:0; transform:scale(1.4); } }
+  /* announcement banner: a bomb was armed / defused / exploded */
+  #announce { position:fixed; top:36vh; text-align:center; left:50%; transform:translate(-50%,-20px); z-index:9; display:flex; align-items:center; gap:1.2vw; padding:1vh 2vw; border-radius:99px; background:#7f1d1d; font-weight:900; font-size:clamp(1.1rem, 4vh, 3rem); box-shadow:0 0 5vh rgba(239,68,68,.55); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; max-width:96vw; }
+  #announce.show { opacity:1; transform:translate(-50%,0); } #announce.good { background:#166534; box-shadow:0 0 5vh rgba(34,197,94,.5); }
+  #announce img { height:clamp(2.6rem, 9vh, 6rem); width:auto; }
+  #off { position:fixed; inset-inline:0; top:0; background:#7f1d1d; text-align:center; padding:.6em; font-weight:800; display:none; z-index:9; }
+  .tools { position:fixed; bottom:1vh; inset-inline-end:1vw; z-index:7; display:flex; gap:6px; }
+
+  @keyframes pop { 0% { transform:scale(1); } 40% { transform:scale(1.25); } 100% { transform:scale(1); } }
+  @keyframes shake { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-6px); } 40% { transform:translateX(6px); } 60% { transform:translateX(-4px); } 80% { transform:translateX(4px); } }
+  @keyframes slide { from { opacity:0; transform:translateY(-1.5vh); } to { opacity:1; transform:none; } }
+  @keyframes zoom { from { transform:scale(1.25); opacity:.4; } to { transform:scale(1); opacity:1; } }
+  @keyframes pulse { to { transform:scale(1.08); } }
+  @keyframes blink { 50% { opacity:.2; } }
+  @keyframes fall { to { transform:translateY(108vh) rotate(720deg); } }
+  @media (max-aspect-ratio: 1/1) { .teams { grid-template-columns:1fr; } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body data-page="screen">
+<div id="off"></div>
+<div class="head">
+  <div class="brand">🔒 Lock Back <small id="game"></small></div>
+  <div class="status" id="status"></div>
+  <div class="clock" id="clock">—</div>
+</div>
+<div class="tug"><i class="A" id="tugA" style="width:50%"></i><i class="B" id="tugB" style="width:50%"></i></div>
+<div id="bombsBar"></div>
+<div class="teams" id="teams"></div>
+<div id="ov"></div>
+<div id="boom">💥</div>
+<div id="announce"></div>
+<div class="tools"><button id="numsToggle" style="display:none"></button><button id="namesToggle" style="display:none"></button><button id="fs">⛶</button><button id="langBtn"></button></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/i18n.js"></script>
+<script src="/live.js"></script>
+<script src="/coinfx.js"></script>
+<script src="/coin.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const GAME = +((location.pathname.match(/\/g\/(\d+)\//) || [])[1] || 1);
+const socket = io('/g' + GAME, { reconnectionDelayMax: 2000 });
+let state = null, offset = 0, shownScore = { A: null, B: null }, lastResultKey;
+$('game').textContent = t('game', { n: GAME });
+
+const hello = () => socket.emit('screen:hello', null, render);
+socket.on('connect', () => { $('off').style.display = 'none'; hello(); });
+socket.on('disconnect', () => { $('off').textContent = t('offMsg'); $('off').style.display = 'block'; });
+socket.on('state', render);
+socket.on('coin', (e) => coinFx($('team' + e.team), e));
+let annTimer = null;
+function announce(e) {
+  const tn = (x) => teamName(x), bomb = t('bomb_' + e.i);
+  const txt = e.type === 'armed' ? t('scrBombArmed', { by: tn(e.by), bomb, target: tn(e.target) })
+    : e.type === 'defused' ? t('scrBombDefused', { target: tn(e.target), bomb })
+    : t('scrBombBoom', { bomb, n: e.n, target: tn(e.target) });
+  const el = $('announce');
+  el.className = e.type === 'defused' ? 'good' : '';
+  el.innerHTML = `${bombImg(e.i)}<span>${esc(txt)}</span>`;
+  void el.offsetWidth; el.classList.add('show');
+  clearTimeout(annTimer); annTimer = setTimeout(() => el.classList.remove('show'), e.type === 'armed' ? 4500 : 3500);
+}
+socket.on('bomb', (e) => { announce(e); if (e.type === 'boom') { const b = $('boom'); b.classList.remove('go'); void b.offsetWidth; b.classList.add('go'); } });
+function renderBombs() {
+  const s = state, now = Date.now() + offset;
+  $('bombsBar').innerHTML = !s || s.phase !== 'running' ? '' : (s.bombs || []).map((b) => {
+    const sec = Math.max(0, Math.ceil((b.endsAt - now) / 1000));
+    return `<div class="bb">${bombImg(b.i)}<span>${esc(t('bomb_' + b.i))} → <span class="tm ${b.target}">${esc(teamName(b.target))}</span></span><span class="tl">${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}</span></div>`;
+  }).join('');
+}
+keepAlive(socket, (res) => (res.state ? render(res.state) : hello()));
+window.onLangChange = () => { state && render(); setNumsBtn(); setNamesBtn(); };
+let isAdmin = false;
+socket.on('screen:admin', (a) => { isAdmin = !!a; setNumsBtn(); });
+function setNumsBtn() {
+  const b = $('numsToggle');
+  b.style.display = isAdmin ? '' : 'none';
+  b.textContent = '🔢 ' + t(state && state.showNumbers ? 'hideNumsOnScreen' : 'showNumsOnScreen');
+}
+let hideNames = false;
+try { hideNames = localStorage.getItem('lb_hideNames') === '1'; } catch {}
+function setNamesBtn() {
+  const b = $('namesToggle');
+  b.style.display = state && state.showNumbers ? '' : 'none';      // only matters while numbers are shown
+  b.textContent = '🙈 ' + t(hideNames ? 'showNames' : 'hideNames');
+}
+$('namesToggle').onclick = () => { hideNames = !hideNames; try { localStorage.setItem('lb_hideNames', hideNames ? '1' : '0'); } catch {} setNamesBtn(); render(); };
+$('numsToggle').onclick = () => socket.emit('admin:showNumbers', !(state && state.showNumbers));
+$('fs').onclick = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen().catch(() => {}));
+
+// counts a score number up/down so changes are visible from across the room
+function animateScore(el, tm, to) {
+  const from = shownScore[tm];
+  shownScore[tm] = to;
+  if (from === null || from === to) { el.textContent = to; return; }
+  el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  const t0 = performance.now(), dur = 500;
+  (function step(now) {
+    const k = Math.min(1, (now - t0) / dur);
+    el.textContent = Math.round(from + (to - from) * k);
+    if (k < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+function confetti() {
+  const cols = ['#2f7df6', '#f59e0b', '#22c55e', '#ef4444', '#fff'];
+  for (let i = 0; i < 90; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = cols[i % cols.length];
+    c.style.animationDuration = 2.5 + Math.random() * 2.5 + 's';
+    c.style.animationDelay = Math.random() * 1.2 + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 7000);
+  }
+}
+
+const pname = (p) => p.name || `${t('player')} ${p.n}`;
+
+function render(s) {
+  if (s) { state = s; offset = s.now - Date.now(); }
+  s = state;
+  if (!s) return;
+  const A = s.teams.A, B = s.teams.B, total = A.score + B.score;
+  $('tugA').style.width = (total ? A.score / total * 100 : 50) + '%';
+  $('tugB').style.width = (total ? B.score / total * 100 : 50) + '%';
+
+  if (!$('teams').children.length) {
+    $('teams').innerHTML = ['A', 'B'].map((tm) => `<div class="team ${tm}" id="team${tm}">
+      <div class="th"><div class="tt"><h2></h2><span class="w"></span></div><div class="score" id="score${tm}"></div></div><div class="plist"></div></div>`).join('');
+  }
+  for (const tm of ['A', 'B']) {
+    const T = s.teams[tm], el = $('team' + tm);
+    el.classList.toggle('lead', T.score > s.teams[tm === 'A' ? 'B' : 'A'].score);
+    el.querySelector('h2').textContent = `${teamName(tm)} (${T.players.length})`;
+    el.querySelector('.w').textContent = `🏆 ${T.wins}  🪙 ${s.coins[tm]}`;
+    animateScore($('score' + tm), tm, T.score);
+    const nowS = Date.now() + offset;
+    const showN = !!s.showNumbers;
+    // with numbers shown the order stays fixed (by number) so people can find a player; otherwise locked players come first
+    const sorted = [...T.players].sort(showN ? (a, b) => String(a.pin).localeCompare(String(b.pin))
+      : (a, b) => (b.lockedUntil > nowS) - (a.lockedUntil > nowS) || (b.connected - a.connected) || a.n - b.n);
+    el.querySelector('.plist').classList.toggle('nums', showN);
+    el.querySelector('.plist').classList.toggle('nonames', showN && hideNames);
+    el.querySelector('.plist').innerHTML = sorted.map((p) => {
+      const lk = p.lockedUntil > nowS;
+      if (showN) return `<span class="p ${lk ? (p.out ? 'out' : 'locked') : ''} ${p.connected ? '' : 'off'}"><span class="pn">${esc(p.pin)}</span><span class="nm">${p.bot ? '🤖 ' : ''}${esc(pname(p))}</span>${lk ? `<span class="lkw">${p.out ? '💀' : `🔒 <span class="lk" data-lock="${p.lockedUntil}">${Math.ceil((p.lockedUntil - nowS) / 1000)}</span>`}</span>` : ''}</span>`;
+      return `<span class="p ${lk ? (p.out ? 'out' : 'locked') : ''} ${p.connected ? '' : 'off'}">${p.bot ? '🤖 ' : ''}${esc(pname(p))}${lk ? ` ${p.out ? '💀' : `🔒 <span class="lk" data-lock="${p.lockedUntil}">${Math.ceil((p.lockedUntil - nowS) / 1000)}</span>`}` : ''}</span>`;
+    }).join('');
+  }
+
+  // round result overlay (shown while the lobby displays the last result)
+  const lr = s.phase === 'lobby' ? s.lastResult : null;
+  const key = lr ? lr.round + ':' + lr.scores.A + ':' + lr.scores.B : null;
+  if (lastResultKey !== undefined && key && key !== lastResultKey) showResult(lr); // first load never replays an old result
+  lastResultKey = key;
+  setNumsBtn(); setNamesBtn();
+  fitLists();
+  tick();
+}
+
+let ovTimer = null;
+function showResult(lr) {
+  const ov = $('ov');
+  ov.className = 'show win';
+  ov.innerHTML = `<div class="sub">${esc(t('resultTitle', { n: lr.round }))}</div>
+    <div class="msg" style="color:${lr.winner === 'A' ? 'var(--a)' : lr.winner === 'B' ? 'var(--b)' : 'var(--text)'}">${esc(lr.winner ? t('scrWinner', { team: teamName(lr.winner) }) : t('draw'))}</div>
+    <div class="msg">${lr.scores.A} – ${lr.scores.B}</div>`;
+  if (lr.winner) confetti();
+  clearTimeout(ovTimer);
+  ovTimer = setTimeout(() => { if (state && state.phase !== 'countdown') ov.className = ''; }, 9000);
+}
+
+let lastCd = null;
+function tick() {
+  if (!state) return;
+  renderBombs();
+  const now = Date.now() + offset, s = state;
+  const ov = $('ov');
+  if (s.phase === 'countdown') {
+    const n = Math.max(1, Math.ceil((s.startsAt - now) / 1000));
+    if (n !== lastCd || !ov.classList.contains('cd')) {
+      lastCd = n;
+      ov.className = 'show cd';
+      ov.innerHTML = `<div class="sub">${esc(t('round', { n: s.round }))} · ${esc(t('scrGetReady'))}</div><div class="big">${n}</div>`;
+    }
+  } else if (ov.classList.contains('cd')) { ov.className = ''; lastCd = null; }
+
+  const running = s.phase === 'running';
+  const st = $('status');
+  st.className = 'status' + (running ? ' live' : '');
+  st.textContent = running ? t('round', { n: s.round }) + ' · ' + t('scrLive') : s.phase === 'countdown' ? t('round', { n: s.round }) : t('scrWaiting');
+  const sec = running ? Math.ceil(Math.max(0, s.endsAt - now) / 1000) : null;
+  $('clock').textContent = running ? Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0') : '—';
+  $('clock').classList.toggle('low', running && sec <= 10);
+
+  // locks expire on the client clock: refresh chips when one runs out
+  let expired = false;
+  document.querySelectorAll('[data-lock]').forEach((el) => {
+    const left = Math.ceil((el.dataset.lock - now) / 1000);
+    if (left <= 0) expired = true; else el.textContent = left;
+  });
+  if (expired) render();
+}
+// Everything in the player lists is scaled by --k: as large as possible while all players still fit with no scrolling.
+const fitKey = {};
+// Numbers mode: try every column count and keep the one that allows the biggest number text inside its card.
+function fitNums(el, showName) {
+  const n = el.children.length; if (!n) return;
+  const W = el.clientWidth, H = el.clientHeight, gx = innerWidth * 0.006, gy = innerHeight * 0.008;
+  let best = { pn: 0, c: 1 };
+  for (let c = 1; c <= n; c++) {
+    const r = Math.ceil(n / c), cw = (W - (c - 1) * gx) / c, ch = (H - (r - 1) * gy) / r;
+    const pn = Math.min((cw - 6) / 2.7, (ch - 4) / (1.1 + (showName ? 0.5 : 0)), 140);   // 4 digits are about 2.7em wide
+    if (pn > best.pn) best = { pn, c, r };
+  }
+  el.style.gridTemplateColumns = `repeat(${best.c}, minmax(0, 1fr))`;
+  el.style.gridTemplateRows = `repeat(${best.r}, minmax(0, 1fr))`;
+  el.style.setProperty('--pn', best.pn.toFixed(1) + 'px');
+  el.style.setProperty('--nm', Math.max(10, best.pn * 0.4).toFixed(1) + 'px');
+}
+// Plain name chips: shrink everything (--k) until all players fit without scrolling.
+function fitLists() {
+  document.querySelectorAll('.plist').forEach((el, i) => {
+    if (el.classList.contains('nums')) { fitNums(el, !el.classList.contains('nonames')); return; }
+    el.style.gridTemplateColumns = el.style.gridTemplateRows = '';
+    const key = el.children.length + '|' + innerWidth + 'x' + innerHeight;
+    const over = () => el.scrollHeight > el.clientHeight + 1;
+    if (fitKey[i] === key && !over()) return;
+    fitKey[i] = key;
+    let k = 2.4;
+    el.style.setProperty('--k', k);
+    while (over() && k > 0.3) { k *= 0.94; el.style.setProperty('--k', k.toFixed(3)); }
+  });
+}
+addEventListener('resize', fitLists);
+setInterval(tick, 250);
+</script>
+</body>
+</html>

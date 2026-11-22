@@ -1,0 +1,9 @@
+node_modules/
+.env
+.DS_Store
+*.log
+# generated per computer on first HTTPS run: TLS private key + LAN IPs
+data/cert.json
+# standalone builds (hundreds of MB) - rebuild with `npm run build`, or attach to a GitHub Release
+dist/
+release/

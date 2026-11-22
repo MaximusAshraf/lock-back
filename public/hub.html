@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock Back</title>
+<style>
+  :root { --a:#3b82f6; --b:#f59e0b; --bg:#0b0f17; --card:#161d2b; --text:#eef2f8; --muted:#8b97ab; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; background:radial-gradient(120% 70% at 50% 0%, #1a2540 0%, var(--bg) 60%); color:var(--text); font-family:system-ui,-apple-system,"Segoe UI",sans-serif; padding:16px; }
+  .wrap { max-width:900px; margin:0 auto; }
+  .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  h1 { margin:0; font-size:1.6rem; }
+  .sub { color:var(--muted); margin:0 0 18px; }
+  #langBtn { background:#243049; color:var(--text); border:0; border-radius:99px; padding:7px 14px; font-weight:600; cursor:pointer; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:14px; }
+  .g { background:var(--card); border-radius:16px; padding:18px; display:flex; flex-direction:column; gap:10px; border-top:5px solid #3b4a6b; }
+  .g.running { border-top-color:#22c55e; } .g.countdown { border-top-color:#f59e0b; }
+  .g h2 { margin:0; font-size:1.4rem; }
+  .st { display:inline-block; align-self:flex-start; padding:3px 12px; border-radius:99px; font-size:.85rem; font-weight:700; background:#243049; }
+  .g.running .st { background:#14532d; color:#86efac; } .g.countdown .st { background:#78350f; color:#fde68a; }
+  .meta { color:var(--muted); font-size:.95rem; }
+  .score { display:flex; gap:14px; font-weight:800; direction:ltr; }
+  .score .A { color:#7ab0ff; } .score .B { color:#fbbf24; }
+  .btns { display:flex; flex-direction:column; gap:8px; margin-top:auto; }
+  a.btn { display:block; text-align:center; padding:12px; border-radius:12px; font-weight:800; text-decoration:none; color:#03200f; background:linear-gradient(160deg,#34d399,#16a34a); }
+  a.btn.admin { color:var(--text); background:#2a3550; }
+</style>
+</head>
+<body data-page="hub">
+<div class="wrap">
+  <div class="top"><h1>🔒 <span data-i18n="hubTitle"></span></h1><span><a id="adminLinkTop" href="/admin" style="color:#8ab4ff;margin-inline-end:12px" data-i18n="masterTitle"></a><button id="langBtn"></button></span></div>
+  <p class="sub" id="sub"></p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script src="/i18n.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const MODE = location.pathname === '/admin' ? 'admin' : location.pathname === '/join' ? 'join' : 'both';
+let games = [], isAdmin = false;
+
+function render() {
+  $('adminLinkTop').style.display = isAdmin ? '' : 'none';
+  $('sub').textContent = t(MODE === 'admin' ? 'hubSubAdmin' : MODE === 'join' ? 'hubSubJoin' : 'hubSub');
+  $('grid').innerHTML = games.map((g) => {
+    const stKey = g.phase === 'running' ? 'stRunning' : g.phase === 'countdown' ? 'stStarting' : g.round ? 'stFinished' : 'hubWaiting';
+    return `<div class="g ${g.phase}">
+      <h2>${t('game', { n: g.id })}</h2>
+      <span class="st">${t(stKey, { n: g.round })}</span>
+      <div class="meta">${t('hubPlayers', { n: g.players, c: g.connected })}</div>
+      <div class="score"><span class="A">${t('teamA')} ${g.scores.A}</span><span class="B">${t('teamB')} ${g.scores.B}</span></div>
+      <div class="meta">🏆 ${g.wins.A} – ${g.wins.B}</div>
+      <div class="btns">
+        ${MODE !== 'admin' ? `<a class="btn" href="/g/${g.id}/join">${t('hubJoin')}</a>` : ''}
+        ${MODE !== 'join' && isAdmin ? `<a class="btn admin" href="/g/${g.id}/admin">${t('hubAdmin')}</a>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+async function load() { try { games = await (await fetch('/api/games')).json(); render(); } catch {} }
+window.onLangChange = render;
+fetch('/api/whoami').then((r) => r.json()).then((w) => { isAdmin = w.admin; render(); }).catch(() => {});
+load(); setInterval(load, 3000);
+</script>
+</body>
+</html>
